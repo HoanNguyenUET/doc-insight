@@ -29,11 +29,15 @@ func main() {
 }
 
 func run(ctx context.Context) error {
+	// Bật log JSON trước khi đọc config để cả lỗi cấu hình cũng ra JSON.
+	logLevel := new(slog.LevelVar)
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel})))
+
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel})))
+	logLevel.Set(cfg.LogLevel)
 
 	db, err := repository.NewDB(ctx, cfg.DatabaseURL, cfg.DBMaxConns)
 	if err != nil {
