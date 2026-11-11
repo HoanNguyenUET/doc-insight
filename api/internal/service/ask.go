@@ -57,8 +57,18 @@ type AskService struct {
 	topK int
 }
 
-func NewAskService(repo AskRepo, llm LLMProvider) *AskService {
-	return &AskService{repo: repo, llm: llm, topK: askTopK}
+// AskOption tinh chỉnh AskService (mặc định đủ dùng cho test).
+type AskOption func(*AskService)
+
+// WithTopK đặt số đoạn gần nhất đưa vào prompt.
+func WithTopK(k int) AskOption { return func(s *AskService) { s.topK = k } }
+
+func NewAskService(repo AskRepo, llm LLMProvider, opts ...AskOption) *AskService {
+	s := &AskService{repo: repo, llm: llm, topK: askTopK}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
 }
 
 // Ask trả lời câu hỏi về một tài liệu: embed câu hỏi → top-K chunk gần nhất

@@ -146,6 +146,11 @@ Chưa có: Makefile (`make migrate`, `make seed`), Dockerfile cho `web/`.
 | `LLM_CHAT_MODEL` | Model trả lời của Gemini, danh sách phân tách bằng dấu phẩy, thử lần lượt khi model trước hết quota (429), không còn (404) hay lỗi 5xx. Mặc định `gemini-3.5-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite` |
 | `ALLOWED_ORIGINS` | CORS, phân tách bằng dấu phẩy, mặc định `http://localhost:3000`; `*` là mọi origin |
 | `VITE_API_URL` | (web) Địa chỉ API, mặc định `http://localhost:8080`. Nhúng vào bundle lúc build; xem `web/.env.example` |
+| `INGEST_WORKERS` | Số tài liệu xử lý cùng lúc, mặc định 4 |
+| `INGEST_QUEUE` | Số tài liệu chờ tối đa (đầy thì upload trả 503), mặc định 100 |
+| `INGEST_JOB_TIMEOUT` | Thời gian tối đa xử lý một tài liệu, mặc định `10m` |
+| `ASK_TOP_K` | Số đoạn đưa vào prompt, mặc định 5 (1-20) |
+| `CHUNK_TOKENS` / `CHUNK_OVERLAP` | Độ dài đoạn / phần chồng lấn, mặc định 500 / 50 (quyết định đã chốt; đổi thì phải xử lý lại tài liệu) |
 
 Xem `.env.example` để có mẫu đầy đủ.
 

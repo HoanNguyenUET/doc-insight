@@ -359,3 +359,26 @@ func TestAskQuotaExhausted(t *testing.T) {
 		t.Errorf("plain embed error marked as quota: %v", err)
 	}
 }
+
+func TestAskTopK(t *testing.T) {
+	tests := []struct {
+		name string
+		opts []AskOption
+		want int
+	}{
+		{"mặc định", nil, askTopK},
+		{"WithTopK", []AskOption{WithTopK(2)}, 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := newFakeAskRepo(t, repository.StatusReady, handbook)
+			w := &recordingWriter{}
+			if err := NewAskService(repo, &llm.MockProvider{}, tt.opts...).Ask(context.Background(), askDocID, "Nghỉ phép?", w); err != nil {
+				t.Fatal(err)
+			}
+			if repo.gotLimit != tt.want {
+				t.Errorf("search limit = %d, want %d", repo.gotLimit, tt.want)
+			}
+		})
+	}
+}

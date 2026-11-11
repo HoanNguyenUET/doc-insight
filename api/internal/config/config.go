@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -28,6 +29,14 @@ type Config struct {
 	StorageDir string
 	// AllowedOrigins cho CORS, từ ALLOWED_ORIGINS phân tách bằng dấu phẩy.
 	AllowedOrigins []string
+
+	// Tinh chỉnh; mặc định là các quyết định đã chốt trong CLAUDE.md.
+	IngestWorkers    int           // INGEST_WORKERS: số tài liệu xử lý cùng lúc
+	IngestQueue      int           // INGEST_QUEUE: số tài liệu chờ tối đa
+	IngestJobTimeout time.Duration // INGEST_JOB_TIMEOUT: thời gian tối đa cho một tài liệu
+	AskTopK          int           // ASK_TOP_K: số đoạn đưa vào prompt
+	ChunkTokens      int           // CHUNK_TOKENS: độ dài một đoạn
+	ChunkOverlap     int           // CHUNK_OVERLAP: phần chồng lấn giữa hai đoạn
 }
 
 func (c Config) Addr() string {
@@ -72,6 +81,8 @@ func Load() (Config, error) {
 	}
 	cfg.AllowedOrigins = origins
 
+	errs = append(errs, cfg.loadTuning()...)
+
 	if cfg.DatabaseURL == "" {
 		errs = append(errs, errors.New("thiếu DATABASE_URL"))
 	}
@@ -90,6 +101,36 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("config: %w", err)
 	}
 	return cfg, nil
+}
+
+// loadTuning đọc các thông số tinh chỉnh và trả mọi lỗi cùng lúc.
+func (c *Config) loadTuning() []error {
+	var errs []error
+	intIn := func(key string, def, lo, hi int) int {
+		n, err := intEnv(key, def)
+		switch {
+		case err != nil:
+			errs = append(errs, err)
+		case n < lo || n > hi:
+			errs = append(errs, fmt.Errorf("%s=%d ngoài khoảng %d-%d", key, n, lo, hi))
+		}
+		return n
+	}
+	c.IngestWorkers = intIn("INGEST_WORKERS", 4, 1, 64)
+	c.IngestQueue = intIn("INGEST_QUEUE", 100, 1, 10000)
+	c.AskTopK = intIn("ASK_TOP_K", 5, 1, 20)
+	c.ChunkTokens = intIn("CHUNK_TOKENS", 500, 50, 4000)
+	c.ChunkOverlap = intIn("CHUNK_OVERLAP", 50, 0, 4000)
+	if c.ChunkOverlap >= c.ChunkTokens {
+		errs = append(errs, fmt.Errorf("CHUNK_OVERLAP=%d phải nhỏ hơn CHUNK_TOKENS=%d", c.ChunkOverlap, c.ChunkTokens))
+	}
+
+	timeout, err := time.ParseDuration(getenv("INGEST_JOB_TIMEOUT", "10m"))
+	if err != nil || timeout <= 0 {
+		errs = append(errs, fmt.Errorf("INGEST_JOB_TIMEOUT=%q phải là thời lượng dương, vd. 10m", os.Getenv("INGEST_JOB_TIMEOUT")))
+	}
+	c.IngestJobTimeout = timeout
+	return errs
 }
 
 // parseOrigins nhận "*" hoặc các origin dạng scheme://host[:port]. Origin có

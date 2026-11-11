@@ -5,13 +5,15 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 )
 
 // setEnv đặt toàn bộ biến mà Load đọc; biến không có trong env được đặt rỗng
 // để môi trường của máy chạy test không lọt vào.
 func setEnv(t *testing.T, env map[string]string) {
 	t.Helper()
-	for _, k := range []string{"PORT", "DATABASE_URL", "DB_MAX_CONNS", "LOG_LEVEL", "LLM_PROVIDER", "LLM_API_KEY", "LLM_EMBED_MODEL", "LLM_CHAT_MODEL", "STORAGE_DIR", "ALLOWED_ORIGINS"} {
+	for _, k := range []string{"PORT", "DATABASE_URL", "DB_MAX_CONNS", "LOG_LEVEL", "LLM_PROVIDER", "LLM_API_KEY", "LLM_EMBED_MODEL", "LLM_CHAT_MODEL", "STORAGE_DIR", "ALLOWED_ORIGINS",
+		"INGEST_WORKERS", "INGEST_QUEUE", "INGEST_JOB_TIMEOUT", "ASK_TOP_K", "CHUNK_TOKENS", "CHUNK_OVERLAP"} {
 		t.Setenv(k, env[k])
 	}
 }
@@ -45,6 +47,27 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if len(cfg.AllowedOrigins) != 1 || cfg.AllowedOrigins[0] != "http://localhost:3000" {
 		t.Errorf("AllowedOrigins = %q, want [http://localhost:3000]", cfg.AllowedOrigins)
+	}
+	// Mặc định giữ đúng các quyết định đã chốt (chunk 500/50, top-5).
+	if cfg.IngestWorkers != 4 || cfg.IngestQueue != 100 || cfg.IngestJobTimeout != 10*time.Minute ||
+		cfg.AskTopK != 5 || cfg.ChunkTokens != 500 || cfg.ChunkOverlap != 50 {
+		t.Errorf("tuning defaults = %d %d %v %d %d %d", cfg.IngestWorkers, cfg.IngestQueue, cfg.IngestJobTimeout,
+			cfg.AskTopK, cfg.ChunkTokens, cfg.ChunkOverlap)
+	}
+}
+
+func TestLoadTuningOverrides(t *testing.T) {
+	setEnv(t, map[string]string{
+		"DATABASE_URL": testDBURL, "INGEST_WORKERS": "2", "INGEST_QUEUE": "20", "INGEST_JOB_TIMEOUT": "90s",
+		"ASK_TOP_K": "8", "CHUNK_TOKENS": "300", "CHUNK_OVERLAP": "30",
+	})
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.IngestWorkers != 2 || cfg.IngestQueue != 20 || cfg.IngestJobTimeout != 90*time.Second ||
+		cfg.AskTopK != 8 || cfg.ChunkTokens != 300 || cfg.ChunkOverlap != 30 {
+		t.Errorf("tuning = %+v", cfg)
 	}
 }
 
@@ -131,6 +154,12 @@ func TestLoadErrors(t *testing.T) {
 		{"bad LOG_LEVEL", map[string]string{"DATABASE_URL": testDBURL, "LOG_LEVEL": "loud"}, []string{"LOG_LEVEL"}},
 		{"gemini without key", map[string]string{"DATABASE_URL": testDBURL, "LLM_PROVIDER": "gemini"}, []string{"LLM_API_KEY"}},
 		{"unknown provider", map[string]string{"DATABASE_URL": testDBURL, "LLM_PROVIDER": "openai"}, []string{"openai"}},
+		{"INGEST_WORKERS zero", map[string]string{"DATABASE_URL": testDBURL, "INGEST_WORKERS": "0"}, []string{"INGEST_WORKERS"}},
+		{"INGEST_QUEUE zero", map[string]string{"DATABASE_URL": testDBURL, "INGEST_QUEUE": "0"}, []string{"INGEST_QUEUE"}},
+		{"bad INGEST_JOB_TIMEOUT", map[string]string{"DATABASE_URL": testDBURL, "INGEST_JOB_TIMEOUT": "10"}, []string{"INGEST_JOB_TIMEOUT"}},
+		{"ASK_TOP_K too big", map[string]string{"DATABASE_URL": testDBURL, "ASK_TOP_K": "100"}, []string{"ASK_TOP_K"}},
+		{"CHUNK_TOKENS too small", map[string]string{"DATABASE_URL": testDBURL, "CHUNK_TOKENS": "10"}, []string{"CHUNK_TOKENS"}},
+		{"overlap not below chunk", map[string]string{"DATABASE_URL": testDBURL, "CHUNK_TOKENS": "100", "CHUNK_OVERLAP": "100"}, []string{"CHUNK_OVERLAP"}},
 		{
 			"reports every problem at once",
 			map[string]string{"PORT": "x", "LLM_PROVIDER": "openai"},

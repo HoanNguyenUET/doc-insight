@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -255,5 +256,24 @@ func TestPipelineFailTruncatesMessage(t *testing.T) {
 	}
 	if n := utf8.RuneCountInString(store.failMsg); n != maxErrorMessage+1 || !utf8.ValidString(store.failMsg) {
 		t.Errorf("stored message has %d runes (valid UTF-8: %v)", n, utf8.ValidString(store.failMsg))
+	}
+}
+
+// Đoạn ngắn hơn thì cắt ra nhiều đoạn hơn từ cùng văn bản.
+func TestPipelineWithChunkOptions(t *testing.T) {
+	path := writePDF(t, pdftest.Build(sentencesText(1, 120)))
+	count := func(opts ...PipelineOption) int {
+		store := &fakeStore{}
+		p := NewPipeline(store, &recordingEmbedder{}, opts...)
+		p.log = slog.New(slog.NewJSONHandler(io.Discard, nil))
+		if err := p.Process(context.Background(), Job{DocumentID: "d", Path: path}); err != nil {
+			t.Fatal(err)
+		}
+		return len(store.completed)
+	}
+	def := count()
+	small := count(WithChunkOptions(chunker.Options{TargetTokens: 100, OverlapTokens: 10}))
+	if small <= def {
+		t.Errorf("chunks with 100-token option = %d, default = %d; want more", small, def)
 	}
 }

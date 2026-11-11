@@ -63,14 +63,24 @@ type Pipeline struct {
 	log       *slog.Logger
 }
 
-func NewPipeline(store Store, embedder Embedder) *Pipeline {
-	return &Pipeline{
+// PipelineOption tinh chỉnh Pipeline (mặc định đủ dùng cho test).
+type PipelineOption func(*Pipeline)
+
+// WithChunkOptions đặt độ dài và phần chồng lấn của chunk.
+func WithChunkOptions(o chunker.Options) PipelineOption { return func(p *Pipeline) { p.chunkOpts = o } }
+
+func NewPipeline(store Store, embedder Embedder, opts ...PipelineOption) *Pipeline {
+	p := &Pipeline{
 		store:     store,
 		embedder:  embedder,
 		chunkOpts: chunker.DefaultOptions,
 		batchSize: embedBatchSize,
 		log:       slog.Default(),
 	}
+	for _, o := range opts {
+		o(p)
+	}
+	return p
 }
 
 func (p *Pipeline) Fail(ctx context.Context, documentID, message string) error {

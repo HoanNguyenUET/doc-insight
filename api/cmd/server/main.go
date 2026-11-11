@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/HoanNguyenUET/doc-insight/api/internal/chunker"
 	"github.com/HoanNguyenUET/doc-insight/api/internal/config"
 	"github.com/HoanNguyenUET/doc-insight/api/internal/handler"
 	"github.com/HoanNguyenUET/doc-insight/api/internal/ingest"
@@ -18,12 +19,6 @@ import (
 	"github.com/HoanNguyenUET/doc-insight/api/internal/repository"
 	"github.com/HoanNguyenUET/doc-insight/api/internal/service"
 	"github.com/HoanNguyenUET/doc-insight/api/migrations"
-)
-
-const (
-	ingestWorkers    = 4
-	ingestQueueSize  = 100
-	ingestJobTimeout = 10 * time.Minute
 )
 
 func main() {
@@ -73,7 +68,9 @@ func run(ctx context.Context) error {
 	// Pool dùng context riêng: chỉ dừng sau khi HTTP server đã ngừng nhận
 	// upload, và phải dừng trước khi đóng DB (defer chạy ngược thứ tự).
 	provider := newLLMProvider(cfg)
-	pool := ingest.NewPool(ingest.NewPipeline(db, provider), ingestWorkers, ingestQueueSize, ingestJobTimeout)
+	pipeline := ingest.NewPipeline(db, provider,
+		ingest.WithChunkOptions(chunker.Options{TargetTokens: cfg.ChunkTokens, OverlapTokens: cfg.ChunkOverlap}))
+	pool := ingest.NewPool(pipeline, cfg.IngestWorkers, cfg.IngestQueue, cfg.IngestJobTimeout)
 	poolCtx, stopPool := context.WithCancel(context.WithoutCancel(ctx))
 	pool.Start(poolCtx)
 	defer func() {
@@ -85,7 +82,7 @@ func run(ctx context.Context) error {
 	router := handler.NewRouter(handler.Deps{
 		Health:         handler.NewHealthHandler(service.NewHealthService(db)),
 		Documents:      handler.NewDocumentHandler(service.NewDocumentService(db, pool, cfg.StorageDir, provider.EmbedModel())),
-		Ask:            handler.NewAskHandler(service.NewAskService(db, provider)),
+		Ask:            handler.NewAskHandler(service.NewAskService(db, provider, service.WithTopK(cfg.AskTopK))),
 		AllowedOrigins: cfg.AllowedOrigins,
 	})
 
@@ -100,7 +97,8 @@ func run(ctx context.Context) error {
 	errCh := make(chan error, 1)
 	go func() {
 		slog.Info("http server listening", "addr", srv.Addr, "llm_provider", cfg.LLMProvider,
-			"storage_dir", cfg.StorageDir, "allowed_origins", cfg.AllowedOrigins, "ingest_workers", ingestWorkers)
+			"storage_dir", cfg.StorageDir, "allowed_origins", cfg.AllowedOrigins, "ingest_workers", cfg.IngestWorkers,
+			"ask_top_k", cfg.AskTopK, "chunk_tokens", cfg.ChunkTokens, "chunk_overlap", cfg.ChunkOverlap)
 		errCh <- srv.ListenAndServe()
 	}()
 
