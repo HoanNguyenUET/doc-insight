@@ -154,6 +154,7 @@ func buildPrompt(question string, sources []Source) string {
 	b.WriteString(`Bạn là trợ lý trả lời câu hỏi về một tài liệu nội bộ. Chỉ dùng thông tin trong các đoạn trích bên dưới, không dùng kiến thức bên ngoài.
 Sau mỗi ý, ghi trích dẫn dạng [[n]], với n là số của đoạn trích chứa thông tin đó; một ý dựa trên nhiều đoạn thì ghi [[1]][[3]].
 Nếu các đoạn trích không đủ để trả lời, nói rõ là tài liệu không đề cập. Trả lời bằng tiếng Việt, ngắn gọn.
+Viết văn xuôi, không dùng markdown (không **, *, #, gạch đầu dòng, bảng); muốn tách ý thì xuống đoạn bằng một dòng trống.
 
 Đoạn trích:
 `)

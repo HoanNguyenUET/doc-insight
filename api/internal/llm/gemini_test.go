@@ -322,3 +322,150 @@ func TestGeminiStreamStopsWhenReaderGone(t *testing.T) {
 		t.Fatal("Stream blocked on send after ctx was cancelled")
 	}
 }
+
+// quotaBody giống response 429 thật của Gemini: thời gian chờ nằm trong
+// details (google.rpc.RetryInfo), không có header Retry-After.
+func quotaBody(delay string) string {
+	return `{"error":{"code":429,"message":"You exceeded your current quota","status":"RESOURCE_EXHAUSTED","details":[` +
+		`{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaMetric":"embed_content_free_tier_requests"}]},` +
+		`{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"` + delay + `"}]}}`
+}
+
+func TestReadAPIErrorRetryDelay(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want time.Duration
+	}{
+		{"seconds with fraction", quotaBody("56.908261311s"), 56908261311 * time.Nanosecond},
+		{"whole seconds", quotaBody("3s"), 3 * time.Second},
+		{"no details", `{"error":{"code":429,"message":"x"}}`, 0},
+		{"bad duration", quotaBody("soon"), 0},
+		{"not json", `rate limited`, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			rec.WriteHeader(http.StatusTooManyRequests)
+			rec.WriteString(tt.body)
+			if got := readAPIError(rec.Result()).RetryDelay; got != tt.want {
+				t.Errorf("RetryDelay = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBackoffFor(t *testing.T) {
+	g := NewGeminiProvider("k", "", "")
+	tests := []struct {
+		name        string
+		attempt     int
+		retryAfter  string
+		serverDelay time.Duration
+		min, max    time.Duration
+	}{
+		{"exponential", 2, "", 0, 2 * time.Second, 3 * time.Second},
+		{"exponential capped", 10, "", 0, geminiMaxBackoff, geminiMaxBackoff},
+		{"Retry-After header", 0, "7", 0, 7 * time.Second, 7 * time.Second},
+		// Quota theo phút của Gemini hay đòi chờ gần 60s: phải chờ đủ, không cắt ở 30s.
+		{"RetryInfo above exponential cap", 0, "", 57 * time.Second, 57 * time.Second, 57 * time.Second},
+		{"larger of header and RetryInfo", 0, "40", 20 * time.Second, 40 * time.Second, 40 * time.Second},
+		{"server delay capped", 0, "", time.Hour, geminiMaxServerDelay, geminiMaxServerDelay},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := g.backoffFor(tt.attempt, tt.retryAfter, tt.serverDelay)
+			if got < tt.min || got > tt.max {
+				t.Errorf("backoffFor = %v, want in [%v, %v]", got, tt.min, tt.max)
+			}
+		})
+	}
+}
+
+func TestGeminiRetryHonorsRetryInfo(t *testing.T) {
+	var attempts atomic.Int32
+	var first time.Time
+	g := newTestGemini(t, func(w http.ResponseWriter, r *http.Request) {
+		if attempts.Add(1) == 1 {
+			first = time.Now()
+			w.WriteHeader(http.StatusTooManyRequests)
+			io.WriteString(w, quotaBody("0.2s"))
+			return
+		}
+		if waited := time.Since(first); waited < 200*time.Millisecond {
+			t.Errorf("retried after %v, server asked for 200ms", waited)
+		}
+		json.NewEncoder(w).Encode(map[string]any{"embeddings": []map[string]any{{"values": vector(0.1)}}})
+	})
+	if _, err := g.Embed(context.Background(), []string{"x"}); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if n := attempts.Load(); n != 2 {
+		t.Errorf("attempts = %d, want 2", n)
+	}
+}
+
+// Chờ quá deadline của ctx là vô ích: trả lỗi ngay, giữ lỗi 429 để biết lý do.
+func TestGeminiRetryGivesUpWhenDelayExceedsDeadline(t *testing.T) {
+	var attempts atomic.Int32
+	g := newTestGemini(t, func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
+		w.WriteHeader(http.StatusTooManyRequests)
+		io.WriteString(w, quotaBody("30s"))
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	start := time.Now()
+	_, err := g.Embed(ctx, []string{"x"})
+	if d := time.Since(start); d > time.Second {
+		t.Errorf("returned after %v, want immediately", d)
+	}
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusTooManyRequests {
+		t.Errorf("err = %v, want APIError 429", err)
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("err = %v, want DeadlineExceeded", err)
+	}
+	if n := attempts.Load(); n != 1 {
+		t.Errorf("attempts = %d, want 1", n)
+	}
+}
+
+// Gemini thỉnh thoảng treo không trả header; chưa đọc gì nên gọi lại là an toàn.
+func TestGeminiRetriesTimeout(t *testing.T) {
+	var attempts atomic.Int32
+	g := newTestGemini(t, func(w http.ResponseWriter, r *http.Request) {
+		io.Copy(io.Discard, r.Body)
+		if attempts.Add(1) == 1 {
+			<-r.Context().Done()
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"embeddings": []map[string]any{{"values": vector(0.1)}}})
+	})
+	g.timeout = 50 * time.Millisecond
+	if _, err := g.Embed(context.Background(), []string{"x"}); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if n := attempts.Load(); n != 2 {
+		t.Errorf("attempts = %d, want 2", n)
+	}
+}
+
+func TestGeminiDoesNotRetryWhenCallerCancelled(t *testing.T) {
+	var attempts atomic.Int32
+	ctx, cancel := context.WithCancel(context.Background())
+	g := newTestGemini(t, func(w http.ResponseWriter, r *http.Request) {
+		io.Copy(io.Discard, r.Body)
+		attempts.Add(1)
+		cancel()
+		<-r.Context().Done()
+	})
+	_, err := g.Embed(ctx, []string{"x"})
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("err = %v, want Canceled", err)
+	}
+	if n := attempts.Load(); n != 1 {
+		t.Errorf("attempts = %d, want 1", n)
+	}
+}

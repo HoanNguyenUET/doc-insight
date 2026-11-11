@@ -153,6 +153,20 @@ func (db *DB) FailDocument(ctx context.Context, id, message string) error {
 	return nil
 }
 
+// FailUnfinishedDocuments đánh dấu failed mọi tài liệu chưa tới ready/failed
+// và trả số tài liệu bị đổi. Hàng đợi xử lý nằm trong bộ nhớ, nên sau khi
+// tiến trình chết đột ngột (kill, OOM) không còn worker nào giữ các tài liệu
+// này; gọi lúc khởi động, trước khi pool nhận job mới.
+func (db *DB) FailUnfinishedDocuments(ctx context.Context, message string) (int64, error) {
+	tag, err := db.Pool.Exec(ctx, `
+		UPDATE documents SET status = 'failed', error = $1, processed_at = now(), updated_at = now()
+		WHERE status IN ('pending', 'extracting', 'chunking', 'embedding')`, message)
+	if err != nil {
+		return 0, fmt.Errorf("fail unfinished documents: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
 // CompleteDocument thay toàn bộ trang và chunk của tài liệu rồi chuyển sang
 // ready trong MỘT transaction: không bao giờ có trạng thái ready mà thiếu
 // chunk, hay chunk dở dang của một lần chạy lỗi. Chạy lại cho cùng tài liệu

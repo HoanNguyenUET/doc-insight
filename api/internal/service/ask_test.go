@@ -280,6 +280,8 @@ func TestBuildPrompt(t *testing.T) {
 		"\n[[1]] (trang 2)\nNghỉ phép 12 ngày.\n",
 		"\n[[2]] (trang 9)\nPhép chuyển sang quý một.\n",
 		"\nCâu hỏi: Nghỉ phép bao nhiêu ngày?\n",
+		// Frontend chỉ tách đoạn theo dòng trống, không render markdown.
+		"không dùng markdown",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("prompt missing %q:\n%s", want, got)

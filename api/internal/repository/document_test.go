@@ -212,3 +212,65 @@ func TestDeleteDocument(t *testing.T) {
 		t.Errorf("delete bad id err = %v, want ErrNotFound", err)
 	}
 }
+
+func TestFailUnfinishedDocuments(t *testing.T) {
+	t.Parallel()
+	db := newMigratedDB(t)
+	ctx := context.Background()
+
+	// Mỗi tài liệu được đưa tới một trạng thái, như khi tiến trình chết đột ngột.
+	tests := []struct {
+		status     string
+		wantStatus string
+		wantError  string
+	}{
+		{StatusPending, StatusFailed, "dừng"},
+		{StatusExtracting, StatusFailed, "dừng"},
+		{StatusChunking, StatusFailed, "dừng"},
+		{StatusEmbedding, StatusFailed, "dừng"},
+		{StatusReady, StatusReady, ""},
+		{StatusFailed, StatusFailed, "lỗi cũ"},
+	}
+	ids := make([]string, len(tests))
+	for i, tc := range tests {
+		d, err := db.CreateDocument(ctx, tc.status+".pdf", 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids[i] = d.ID
+		switch tc.status {
+		case StatusPending:
+		case StatusReady:
+			err = db.CompleteDocument(ctx, d.ID, blankPages(1), nil)
+		case StatusFailed:
+			err = db.FailDocument(ctx, d.ID, "lỗi cũ")
+		default:
+			err = db.SetDocumentStage(ctx, d.ID, tc.status, 50)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	n, err := db.FailUnfinishedDocuments(ctx, "dừng")
+	if err != nil {
+		t.Fatalf("FailUnfinishedDocuments: %v", err)
+	}
+	if n != 4 {
+		t.Errorf("affected = %d, want 4", n)
+	}
+	for i, tc := range tests {
+		got := mustGet(t, db, ids[i])
+		gotErr := ""
+		if got.Error != nil {
+			gotErr = *got.Error
+		}
+		if got.Status != tc.wantStatus || gotErr != tc.wantError {
+			t.Errorf("%s: status=%s error=%q, want %s %q", tc.status, got.Status, gotErr, tc.wantStatus, tc.wantError)
+		}
+	}
+
+	if n, err := db.FailUnfinishedDocuments(ctx, "dừng"); err != nil || n != 0 {
+		t.Errorf("second call = %d, %v; want 0, nil", n, err)
+	}
+}

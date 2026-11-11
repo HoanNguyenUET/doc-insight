@@ -135,7 +135,7 @@ func TestAskStreamsSSE(t *testing.T) {
 		t.Errorf("chunks[0] = %v, want only %d fields + preview", first, len(want))
 	}
 	p := first["preview"].(string)
-	if n := len([]rune(p)); n > previewRunes+1 || n < previewRunes-10 ||!strings.HasSuffix(p, "…") || strings.Contains(p, "  ") || strings.Contains(p, "\n") {
+	if n := len([]rune(p)); n > previewRunes+1 || n < previewRunes-10 || !strings.HasSuffix(p, "…") || strings.Contains(p, "  ") || strings.Contains(p, "\n") {
 		t.Errorf("preview (%d runes) = %q, want %d runes of collapsed whitespace + …", n, p, previewRunes)
 	}
 	if got := chunks[1].(map[string]any)["preview"]; got != "Ngắn." {

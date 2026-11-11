@@ -61,6 +61,15 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("create STORAGE_DIR: %w", err)
 	}
 
+	// Tắt êm thì pool tự ghi lỗi cho job dở; còn nếu lần chạy trước bị kill
+	// thì tài liệu treo ở trạng thái đang xử lý mãi. Giả định chỉ một instance
+	// xử lý ingest cho mỗi database.
+	if n, err := db.FailUnfinishedDocuments(ctx, "server dừng đột ngột khi đang xử lý; hãy tải lên lại"); err != nil {
+		return fmt.Errorf("recover unfinished documents: %w", err)
+	} else if n > 0 {
+		slog.Warn("marked unfinished documents as failed", "count", n)
+	}
+
 	// Pool dùng context riêng: chỉ dừng sau khi HTTP server đã ngừng nhận
 	// upload, và phải dừng trước khi đóng DB (defer chạy ngược thứ tự).
 	provider := newLLMProvider(cfg)
