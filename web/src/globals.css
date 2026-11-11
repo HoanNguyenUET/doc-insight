@@ -91,10 +91,38 @@
   --color-bad: var(--bad);
   --color-bad-soft: var(--bad-soft);
 
+  --shadow-focus: 0 0 0 3px var(--blueprint-soft);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* Token thiết kế: dùng thay giá trị tuỳ ý (text-[13.5px], rounded-[9px]…).
+   Thêm token mới thì khai báo cả trong src/lib/utils.ts cho cn(). */
+@theme {
+  /* Thang chữ. */
+  --text-2xs: 11px; /* nhãn mono rất nhỏ */
+  --text-meta: 11.5px; /* dòng phụ, gợi ý */
+  --text-caption: 12.5px; /* thông tin kèm theo */
+  --text-small: 13px; /* nút phụ, chú thích */
+  --text-ui: 13.5px; /* chữ giao diện chính */
+  --text-body: 14.5px; /* nội dung đọc: câu hỏi, câu trả lời */
+  --text-title: 16px; /* tiêu đề thẻ, khối */
+  --text-heading: 18px; /* tiêu đề màn tài liệu */
+  --text-display: 26px; /* tiêu đề trang */
+
+  /* Bán kính. */
+  --radius-card: 12px;
+  --radius-control: 9px;
+  --radius-control-sm: 7px;
+
+  /* Bóng đổ. */
+  --shadow-tab: 0 1px 2px rgb(26 28 31 / 0.08);
+  --shadow-card: 0 6px 20px rgb(26 28 31 / 0.07);
+  --shadow-sheet: 0 1px 2px rgb(26 28 31 / 0.06), 0 8px 26px rgb(26 28 31 / 0.07);
+  --shadow-pop: 0 4px 14px rgb(0 0 0 / 0.2);
 }
 
 @theme {
@@ -149,7 +177,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background font-sans text-[15px] leading-[1.55] text-foreground antialiased;
+    @apply bg-background font-sans text-body leading-[1.55] text-foreground antialiased;
   }
   ::selection {
     background: var(--marker-soft);

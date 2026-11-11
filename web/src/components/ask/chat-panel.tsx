@@ -78,7 +78,7 @@ export function ChatPanel({ doc }: { doc: Document }) {
         >
           <SelectTrigger
             aria-label="Chọn cuộc hỏi đáp"
-            className="h-8 max-w-[70%] min-w-0 border-transparent bg-transparent px-2 text-[13.5px] font-medium shadow-none hover:bg-field"
+            className="h-8 max-w-[70%] min-w-0 border-transparent bg-transparent px-2 text-ui font-medium shadow-none hover:bg-field"
           >
             <SelectValue />
           </SelectTrigger>
@@ -96,7 +96,7 @@ export function ChatPanel({ doc }: { doc: Document }) {
           size="sm"
           onClick={() => newConversation(doc.id)}
           disabled={!!pending}
-          className="ml-auto h-8 gap-1.5 px-2.5 text-[13px] text-ink-2 hover:bg-field"
+          className="ml-auto h-8 gap-1.5 px-2.5 text-small text-ink-2 hover:bg-field"
         >
           <PlusIcon className="size-3.5 stroke-2" />
           Cuộc mới
@@ -115,7 +115,7 @@ export function ChatPanel({ doc }: { doc: Document }) {
               (stream.text === "" && (stream.status === "connecting" || stream.status === "streaming") ? (
                 <Thinking />
               ) : (
-                <div className="max-w-[93%] self-start text-[14.5px] leading-[1.7]">
+                <div className="max-w-[93%] self-start text-body leading-[1.7]">
                   <AnswerText messageId={live.messageId} text={stream.text} sources={stream.sources} streaming />
                 </div>
               ))}

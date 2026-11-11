@@ -40,8 +40,8 @@ export function DocumentContent({ id }: { id: string }) {
   return (
     <>
       {doc && ready && (
-        <section className="mb-6 rounded-[12px] border border-rule bg-paper px-5 py-[18px]">
-          <h2 className="mb-3.5 text-[15px] font-semibold">AI dùng tài liệu này thế nào?</h2>
+        <section className="mb-6 rounded-card border border-rule bg-paper px-5 py-[18px]">
+          <h2 className="mb-3.5 text-body font-semibold">AI dùng tài liệu này thế nào?</h2>
           <ol className="grid gap-3 xl:grid-cols-3">
             <Step n={1} title={`Đọc ${doc.page_count ?? 0} trang`}>
               Lấy toàn bộ chữ trong file PDF ({formatBytes(doc.size_bytes)})
@@ -77,7 +77,7 @@ export function DocumentContent({ id }: { id: string }) {
                 className="h-10 bg-paper pl-9"
               />
             </div>
-            <label className="flex cursor-pointer items-center gap-2 text-[13px] text-ink-3 select-none">
+            <label className="flex cursor-pointer items-center gap-2 text-small text-ink-3 select-none">
               <input
                 type="checkbox"
                 checked={technical}
@@ -94,9 +94,9 @@ export function DocumentContent({ id }: { id: string }) {
             <div className="flex flex-col gap-6">
               {pages.map(([page, list]) => (
                 <section key={page}>
-                  <h3 className="mb-2.5 flex items-baseline gap-2 text-[14px] font-semibold">
+                  <h3 className="mb-2.5 flex items-baseline gap-2 text-ui font-semibold">
                     Trang {page}
-                    <span className="text-[13px] font-normal text-ink-3">{list.length} đoạn</span>
+                    <span className="text-small font-normal text-ink-3">{list.length} đoạn</span>
                   </h3>
                   <div className="flex flex-col gap-2.5">
                     {list.map((c) => (
@@ -116,12 +116,12 @@ export function DocumentContent({ id }: { id: string }) {
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
     <li className="flex gap-3">
-      <span className="grid size-7 flex-none place-items-center rounded-full bg-blueprint-soft font-mono text-[13px] font-medium text-blueprint">
+      <span className="grid size-7 flex-none place-items-center rounded-full bg-blueprint-soft font-mono text-small font-medium text-blueprint">
         {n}
       </span>
       <div>
-        <div className="text-[14px] font-medium">{title}</div>
-        <p className="mt-0.5 text-[13px] leading-relaxed text-ink-2">{children}</p>
+        <div className="text-ui font-medium">{title}</div>
+        <p className="mt-0.5 text-small leading-relaxed text-ink-2">{children}</p>
       </div>
     </li>
   );
@@ -131,7 +131,7 @@ function Panel({ children, tone }: { children: React.ReactNode; tone?: "bad" }) 
   return (
     <p
       className={cn(
-        "rounded-[12px] border border-rule bg-paper px-5 py-10 text-center text-sm",
+        "rounded-card border border-rule bg-paper px-5 py-10 text-center text-sm",
         tone === "bad" ? "text-bad" : "text-ink-3",
       )}
     >
@@ -158,14 +158,14 @@ function ChunkCard({ docId, chunk: c, technical }: { docId: string; chunk: Chunk
   };
 
   return (
-    <article className="rounded-[10px] border border-rule bg-paper px-4 py-3.5 transition-colors hover:border-ink-3/40">
+    <article className="rounded-card border border-rule bg-paper px-4 py-3.5 transition-colors hover:border-ink-3/40">
       <div className="mb-1.5 flex items-center justify-between gap-3">
-        <span className="text-[13px] font-medium text-ink-3">Đoạn {c.index + 1}</span>
+        <span className="text-small font-medium text-ink-3">Đoạn {c.index + 1}</span>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-[13px] text-ink-2 hover:bg-field"
+            className="h-7 px-2 text-small text-ink-2 hover:bg-field"
             onClick={() => setOpen((o) => !o)}
           >
             {open ? "Thu gọn" : "Đọc hết"}
@@ -173,18 +173,18 @@ function ChunkCard({ docId, chunk: c, technical }: { docId: string; chunk: Chunk
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-[13px] text-blueprint hover:bg-field"
+            className="h-7 px-2 text-small text-blueprint hover:bg-field"
             onClick={view}
           >
             Xem trên trang →
           </Button>
         </div>
       </div>
-      <p className={cn("text-[14px] leading-relaxed text-ink", open ? "whitespace-pre-wrap" : "line-clamp-3")}>
+      <p className={cn("text-ui leading-relaxed text-ink", open ? "whitespace-pre-wrap" : "line-clamp-3")}>
         {c.content}
       </p>
       {technical && (
-        <p className="mt-2 font-mono text-[11.5px] text-ink-3">
+        <p className="mt-2 font-mono text-meta text-ink-3">
           mã {c.id} · ký tự {c.char_start}–{c.char_end} ({c.char_end - c.char_start}) · {c.token_count ?? "?"} token
         </p>
       )}

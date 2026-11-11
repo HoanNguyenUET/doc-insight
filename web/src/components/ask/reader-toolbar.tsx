@@ -21,7 +21,7 @@ export function ReaderToolbar({
 }) {
   return (
     <div className="flex h-[52px] flex-none items-center justify-end gap-3 border-b border-rule-soft bg-paper px-4">
-      <div className="flex flex-none items-center gap-px rounded-[7px] bg-field p-0.5">
+      <div className="flex flex-none items-center gap-px rounded-control-sm bg-field p-0.5">
         <ToolButton onClick={() => onZoom(-1)} disabled={!canZoomOut} label="Thu nhỏ">
           −
         </ToolButton>
@@ -30,7 +30,7 @@ export function ReaderToolbar({
           +
         </ToolButton>
       </div>
-      <div className="flex flex-none items-center gap-px rounded-[7px] bg-field p-0.5">
+      <div className="flex flex-none items-center gap-px rounded-control-sm bg-field p-0.5">
         <ToolButton onClick={() => onTurn(-1)} disabled={page <= 1} label="Trang trước">
           ‹
         </ToolButton>

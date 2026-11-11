@@ -7,9 +7,9 @@ import type { Message } from "@/lib/ask-store";
 
 export function UserBubble({ message }: { message: Extract<Message, { role: "user" }> }) {
   return (
-    <div className="max-w-[84%] self-end rounded-[16px_16px_4px_16px] bg-blueprint-soft px-4 py-2.5 text-[14.5px] leading-[1.55] whitespace-pre-wrap text-ink">
+    <div className="max-w-[84%] self-end rounded-[16px_16px_4px_16px] bg-blueprint-soft px-4 py-2.5 text-body leading-[1.55] whitespace-pre-wrap text-ink">
       {message.quote && (
-        <div className="mb-1.5 border-l-2 border-blueprint/30 pl-2.5 font-serif text-[13.5px] leading-normal text-ink-2 italic">
+        <div className="mb-1.5 border-l-2 border-blueprint/30 pl-2.5 font-serif text-ui leading-normal text-ink-2 italic">
           {message.quote}
         </div>
       )}
@@ -20,9 +20,9 @@ export function UserBubble({ message }: { message: Extract<Message, { role: "use
 
 export function AssistantMessage({ message }: { message: Extract<Message, { role: "assistant" }> }) {
   return (
-    <div className="max-w-[93%] self-start text-[14.5px] leading-[1.7]">
+    <div className="max-w-[93%] self-start text-body leading-[1.7]">
       <AnswerText messageId={message.id} text={message.text} sources={message.sources} />
-      {message.error && <p className="mt-2 text-[13px] text-bad">{message.error}</p>}
+      {message.error && <p className="mt-2 text-small text-bad">{message.error}</p>}
     </div>
   );
 }
@@ -33,7 +33,7 @@ export function Thinking() {
   return (
     <div
       role="status"
-      className="flex items-center gap-2.5 self-start rounded-[12px] border border-rule-soft bg-field px-3.5 py-2.5 text-[13.5px] whitespace-nowrap text-ink-2"
+      className="flex items-center gap-2.5 self-start rounded-card border border-rule-soft bg-field px-3.5 py-2.5 text-ui whitespace-nowrap text-ink-2"
     >
       <SparkIcon className="size-4 flex-none animate-pulse text-blueprint" />
       Đang trả lời
@@ -64,8 +64,8 @@ export function Welcome({ onAsk }: { onAsk: (question: string) => void }) {
       <span className="mb-3 grid size-11 place-items-center rounded-full bg-blueprint-soft text-blueprint">
         <SparkIcon className="size-5" />
       </span>
-      <h3 className="text-[16px] font-semibold">Hỏi bất cứ điều gì về tài liệu này</h3>
-      <p className="mt-1 text-[13.5px] leading-relaxed text-ink-3">
+      <h3 className="text-title font-semibold">Hỏi bất cứ điều gì về tài liệu này</h3>
+      <p className="mt-1 text-ui leading-relaxed text-ink-3">
         AI trả lời kèm trích dẫn tới đúng trang. Bạn cũng có thể bôi đen một đoạn trong tài liệu để hỏi về đoạn đó.
       </p>
       <div className="mt-5 flex w-full flex-col gap-2">
@@ -74,7 +74,7 @@ export function Welcome({ onAsk }: { onAsk: (question: string) => void }) {
             key={q}
             type="button"
             onClick={() => onAsk(q)}
-            className="rounded-[10px] border border-rule bg-white px-3.5 py-2.5 text-left text-[13.5px] text-ink-2 transition-colors hover:border-blueprint/40 hover:text-blueprint"
+            className="rounded-card border border-rule bg-white px-3.5 py-2.5 text-left text-ui text-ink-2 transition-colors hover:border-blueprint/40 hover:text-blueprint"
           >
             {q}
           </button>

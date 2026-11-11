@@ -61,7 +61,7 @@ export function SelectionQuote({
   return (
     <Button
       size="sm"
-      className="absolute z-40 h-auto -translate-x-1/2 -translate-y-[130%] gap-[7px] rounded-[7px] bg-ink px-3 py-1.5 text-[13px] font-[450] text-white shadow-[0_4px_14px_rgba(0,0,0,.2)] hover:bg-ink/90"
+      className="absolute z-40 h-auto -translate-x-1/2 -translate-y-[130%] gap-[7px] rounded-control-sm bg-ink px-3 py-1.5 text-small font-[450] text-white shadow-pop hover:bg-ink/90"
       style={{ top: pick.top, left: pick.left }}
       // Giữ vùng chọn khi bấm nút.
       onMouseDown={(e) => e.preventDefault()}

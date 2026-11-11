@@ -41,8 +41,8 @@ export function AnswerText({
   return (
     <>
       {inDoc.map(renderParagraph)}
-      <div className="mt-3 rounded-[8px] border border-dashed border-rule bg-field px-3.5 py-3 text-ink-2">
-        <div className="mb-1.5 font-mono text-[10.5px] tracking-wide text-ink-3 uppercase">
+      <div className="mt-3 rounded-control border border-dashed border-rule bg-field px-3.5 py-3 text-ink-2">
+        <div className="mb-1.5 font-mono text-2xs tracking-wide text-ink-3 uppercase">
           Ngoài tài liệu · kiến thức chung, không có nguồn
         </div>
         {outside.map((parts, k) => renderParagraph(parts, inDoc.length + k))}

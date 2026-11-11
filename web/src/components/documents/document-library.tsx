@@ -54,7 +54,7 @@ export function DocumentLibrary({ heading }: { heading: React.ReactNode }) {
       {isPending ? (
         <Grid>
           {Array.from({ length: 3 }, (_, i) => (
-            <div key={i} className="flex min-h-[132px] flex-col gap-3 rounded-[12px] border border-rule bg-paper p-4">
+            <div key={i} className="flex min-h-[132px] flex-col gap-3 rounded-card border border-rule bg-paper p-4">
               <Skeleton className="h-5 w-2/3" />
               <Skeleton className="h-3 w-1/2" />
             </div>
@@ -95,7 +95,7 @@ function Grid({ children }: { children: React.ReactNode }) {
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-[12px] border border-dashed border-rule bg-paper px-6 py-14 text-center text-sm text-ink-3">
+    <div className="rounded-card border border-dashed border-rule bg-paper px-6 py-14 text-center text-sm text-ink-3">
       {children}
     </div>
   );

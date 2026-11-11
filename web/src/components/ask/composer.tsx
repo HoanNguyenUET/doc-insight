@@ -35,15 +35,15 @@ export function Composer({
   return (
     <div className="flex-none px-4 pt-2 pb-3.5">
       <form
-        className="rounded-[12px] border border-rule bg-white p-1.5 transition-colors focus-within:border-blueprint/50 focus-within:shadow-[0_0_0_3px_var(--color-blueprint-soft)]"
+        className="rounded-card border border-rule bg-white p-1.5 transition-colors focus-within:border-blueprint/50 focus-within:shadow-focus"
         onSubmit={(e) => {
           e.preventDefault();
           submit();
         }}
       >
         {pendingQuote && (
-          <div className="m-1 mb-1.5 flex items-start justify-between gap-2.5 rounded-[8px] border-l-[2.5px] border-marker bg-field px-3 py-2">
-            <p className="line-clamp-2 font-serif text-[13.5px] leading-normal text-ink-2 italic">“{pendingQuote}”</p>
+          <div className="m-1 mb-1.5 flex items-start justify-between gap-2.5 rounded-control border-l-[2.5px] border-marker bg-field px-3 py-2">
+            <p className="line-clamp-2 font-serif text-ui leading-normal text-ink-2 italic">“{pendingQuote}”</p>
             <Button
               type="button"
               variant="ghost"
@@ -64,22 +64,20 @@ export function Composer({
             maxLength={MAX_QUESTION_CHARS}
             placeholder={pendingQuote ? "Hỏi gì về đoạn này? (để trống: giải thích đoạn này)" : "Hỏi về tài liệu này…"}
             aria-label="Câu hỏi"
-            className="h-9 min-w-0 flex-1 bg-transparent px-2.5 text-[14.5px] outline-none placeholder:text-ink-3"
+            className="h-9 min-w-0 flex-1 bg-transparent px-2.5 text-body outline-none placeholder:text-ink-3"
           />
           <Button
             type="submit"
             size="icon"
             disabled={disabled}
             aria-label="Gửi"
-            className="size-9 flex-none rounded-[9px]"
+            className="size-9 flex-none rounded-control"
           >
             <SendIcon className="size-[17px] stroke-[1.9]" />
           </Button>
         </div>
       </form>
-      <p className="mt-1.5 px-1 text-[11.5px] text-ink-3">
-        Enter để gửi · Bôi đen chữ trong tài liệu để hỏi về đoạn đó
-      </p>
+      <p className="mt-1.5 px-1 text-meta text-ink-3">Enter để gửi · Bôi đen chữ trong tài liệu để hỏi về đoạn đó</p>
     </div>
   );
 }

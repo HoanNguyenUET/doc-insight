@@ -54,18 +54,18 @@ export function DocumentLayout() {
     <div className="flex flex-1 flex-col overflow-hidden">
       <header className="flex h-[60px] flex-none items-center gap-4 border-b border-rule bg-paper px-6">
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-serif text-[18px] leading-tight font-semibold">
+          <h1 className="truncate font-serif text-heading leading-tight font-semibold">
             {doc ? displayName(doc.filename) : " "}
           </h1>
           {doc && (
-            <p className="truncate text-[12.5px] text-ink-3">
+            <p className="truncate text-caption text-ink-3">
               {[doc.page_count != null && `${doc.page_count} trang`, formatBytes(doc.size_bytes)]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
           )}
         </div>
-        <nav className="flex flex-none gap-0.5 rounded-[9px] bg-field p-[3px]" aria-label="Chế độ xem">
+        <nav className="flex flex-none gap-0.5 rounded-control bg-field p-[3px]" aria-label="Chế độ xem">
           <Tab to={`/documents/${id}`} end>
             Hỏi đáp
           </Tab>
@@ -84,10 +84,8 @@ function Tab({ to, end, children }: { to: string; end?: boolean; children: React
       end={end}
       className={({ isActive }) =>
         cn(
-          "rounded-[7px] px-3.5 py-1.5 text-[13.5px] transition-colors",
-          isActive
-            ? "bg-paper font-medium text-ink shadow-[0_1px_2px_rgba(26,28,31,.08)]"
-            : "text-ink-2 hover:text-ink",
+          "rounded-control-sm px-3.5 py-1.5 text-ui transition-colors",
+          isActive ? "bg-paper font-medium text-ink shadow-tab" : "text-ink-2 hover:text-ink",
         )
       }
     >

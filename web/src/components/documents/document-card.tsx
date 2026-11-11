@@ -49,24 +49,24 @@ export function DocumentCard({ doc }: { doc: Document }) {
         }
       }}
       className={cn(
-        "group flex flex-col rounded-[12px] border border-rule bg-paper p-4 text-left transition-[border-color,box-shadow]",
-        ready ? "cursor-pointer hover:border-ink-3/40 hover:shadow-[0_6px_20px_rgba(26,28,31,.07)]" : "cursor-default",
+        "group flex flex-col rounded-card border border-rule bg-paper p-4 text-left transition-[border-color,box-shadow]",
+        ready ? "cursor-pointer hover:border-ink-3/40 hover:shadow-card" : "cursor-default",
       )}
     >
       <div className="flex items-start gap-3">
-        <span className="grid size-10 flex-none place-items-center rounded-[9px] bg-field text-ink-3 transition-colors group-hover:text-blueprint">
+        <span className="grid size-10 flex-none place-items-center rounded-control bg-field text-ink-3 transition-colors group-hover:text-blueprint">
           <FileIcon className="size-5 stroke-[1.5]" />
         </span>
         <div className="min-w-0 flex-1">
           <h3
             className={cn(
-              "line-clamp-2 font-serif text-[16px] leading-snug font-semibold break-words transition-colors",
+              "line-clamp-2 font-serif text-title leading-snug font-semibold break-words transition-colors",
               ready && "group-hover:text-blueprint",
             )}
           >
             {displayName(doc.filename)}
           </h3>
-          <p className="mt-0.5 text-[12.5px] text-ink-3">{meta.join(" · ")}</p>
+          <p className="mt-0.5 text-caption text-ink-3">{meta.join(" · ")}</p>
         </div>
         {!ready && <StatusTag status={doc.status} />}
       </div>
@@ -78,7 +78,7 @@ export function DocumentCard({ doc }: { doc: Document }) {
       )}
 
       <div className="mt-4 flex min-h-[26px] items-center justify-between gap-2">
-        <span className={cn("text-[12.5px]", doc.needs_reprocess ? "text-warn" : "text-ink-3")}>
+        <span className={cn("text-caption", doc.needs_reprocess ? "text-warn" : "text-ink-3")}>
           {!ready
             ? ""
             : doc.needs_reprocess

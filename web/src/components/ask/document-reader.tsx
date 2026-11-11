@@ -59,7 +59,7 @@ export function DocumentReader({ doc }: { doc: Document }) {
         <div
           ref={sheetRef}
           // mx-auto + w-fit: căn giữa khi vừa cột, cuộn ngang được khi phóng to.
-          className="relative mx-auto w-fit bg-white shadow-[0_1px_2px_rgba(26,28,31,.06),0_8px_26px_rgba(26,28,31,.07)]"
+          className="relative mx-auto w-fit bg-white shadow-sheet"
         >
           <PdfDocument
             file={api.fileUrl(doc.id)}

@@ -63,12 +63,12 @@ export function UploadPanel() {
             add(e.dataTransfer.files);
           }}
           className={cn(
-            "block w-full cursor-pointer rounded-[10px] border-[1.5px] border-dashed border-rule bg-paper px-[30px] py-[46px] text-center transition-colors hover:border-blueprint hover:bg-white",
+            "block w-full cursor-pointer rounded-card border-[1.5px] border-dashed border-rule bg-paper px-[30px] py-[46px] text-center transition-colors hover:border-blueprint hover:bg-white",
             over && "border-blueprint bg-white",
           )}
         >
           <DropIcon className="mx-auto mb-[13px] size-[30px] stroke-[1.4] text-blueprint" />
-          <h3 className="mb-[5px] text-[17px] font-medium">Kéo thả file PDF vào đây</h3>
+          <h3 className="mb-[5px] text-title font-medium">Kéo thả file PDF vào đây</h3>
           <p className="text-sm text-ink-3">Hoặc bấm để chọn. Tối đa 50 MB mỗi file.</p>
         </button>
         <input
@@ -109,10 +109,10 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className={cn("overflow-hidden rounded-[10px] border border-rule bg-paper", className)}>
+    <section className={cn("overflow-hidden rounded-card border border-rule bg-paper", className)}>
       <div className="flex items-center justify-between border-b border-rule-soft px-[18px] py-3.5">
-        <h3 className="text-[15px] font-semibold">{title}</h3>
-        {aside && <span className="text-[13px] text-ink-3">{aside}</span>}
+        <h3 className="text-body font-semibold">{title}</h3>
+        {aside && <span className="text-small text-ink-3">{aside}</span>}
       </div>
       {children}
     </section>
@@ -165,9 +165,9 @@ function QueueRow({ item }: { item: Item }) {
       <div className="mb-[9px] flex items-center justify-between gap-3.5">
         <div className="min-w-0">
           <div className="truncate text-sm font-[450]">{item.name}</div>
-          <div className="font-mono text-[11.5px] text-ink-3">{formatBytes(item.size)}</div>
+          <div className="font-mono text-meta text-ink-3">{formatBytes(item.size)}</div>
         </div>
-        <div className="max-w-[55%] truncate text-right text-[13px] whitespace-nowrap">{state}</div>
+        <div className="max-w-[55%] truncate text-right text-small whitespace-nowrap">{state}</div>
       </div>
       <div className="h-[3px] overflow-hidden rounded-sm bg-rule-soft">
         <i className={cn("block h-full rounded-sm transition-[width]", bar.color)} style={{ width: `${bar.width}%` }} />
@@ -213,14 +213,14 @@ function StepsPanel({ item }: { item?: Item }) {
               </i>
               <div>
                 <h4 className={cn("text-sm leading-snug font-medium", state === "todo" && "text-ink-3")}>{s.title}</h4>
-                <p className="text-[13px] leading-[1.45] text-ink-3">{s.desc}</p>
+                <p className="text-small leading-[1.45] text-ink-3">{s.desc}</p>
               </div>
             </li>
           );
         })}
       </ol>
       {failed && (
-        <p className="border-t border-rule-soft px-[18px] py-3 text-[13px] text-bad">
+        <p className="border-t border-rule-soft px-[18px] py-3 text-small text-bad">
           {item?.error ?? doc?.error ?? "Xử lý thất bại"}
         </p>
       )}
