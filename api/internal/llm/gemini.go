@@ -30,7 +30,8 @@ const (
 	geminiBaseBackoff = 500 * time.Millisecond
 	geminiMaxBackoff  = 30 * time.Second
 	// Thời gian chờ do server yêu cầu (Retry-After, RetryInfo) được chờ đủ,
-	// vì quota theo phút của gói miễn phí thường đòi gần 60s; chỉ chặn trên ở đây.
+	// vì quota theo phút của gói miễn phí thường đòi gần 60s. RetryInfo đòi
+	// lâu hơn mức này (quota theo ngày) thì báo lỗi ngay, không chờ.
 	geminiMaxServerDelay = 2 * time.Minute
 	// Giới hạn số văn bản của một lần batchEmbedContents.
 	geminiMaxEmbedBatch = 100
@@ -277,7 +278,8 @@ func (g *GeminiProvider) post(ctx context.Context, path string, body []byte) (*h
 			resp.Body.Close()
 			cancel()
 			retryable := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500
-			if !retryable || attempt >= g.maxRetries {
+			// Server đòi chờ quá lâu (quota theo ngày đòi hàng giờ): chờ cũng vô ích.
+			if !retryable || attempt >= g.maxRetries || apiErr.RetryDelay > geminiMaxServerDelay {
 				return nil, nil, apiErr
 			}
 			lastErr, status = apiErr, resp.StatusCode

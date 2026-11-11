@@ -469,3 +469,25 @@ func TestGeminiDoesNotRetryWhenCallerCancelled(t *testing.T) {
 		t.Errorf("attempts = %d, want 1", n)
 	}
 }
+
+// Quota theo ngày đòi chờ hàng giờ: chờ cũng vô ích, báo lỗi ngay.
+func TestGeminiDoesNotRetryLongRetryInfo(t *testing.T) {
+	var attempts atomic.Int32
+	g := newTestGemini(t, func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
+		w.WriteHeader(http.StatusTooManyRequests)
+		io.WriteString(w, quotaBody("72387s"))
+	})
+	start := time.Now()
+	_, err := g.Embed(context.Background(), []string{"x"})
+	if d := time.Since(start); d > time.Second {
+		t.Errorf("returned after %v, want immediately", d)
+	}
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusTooManyRequests {
+		t.Errorf("err = %v, want APIError 429", err)
+	}
+	if n := attempts.Load(); n != 1 {
+		t.Errorf("attempts = %d, want 1", n)
+	}
+}

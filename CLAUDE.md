@@ -7,7 +7,7 @@ liệu gốc.
 ## Kiến trúc
 
 ```
-web/  Next.js 15 App Router, TypeScript
+web/  React 19 + Vite, React Router, TypeScript (SPA, build ra file tĩnh)
 api/  Go 1.22, chi, pgx/v5
 db    PostgreSQL 16 + pgvector
 ```
@@ -41,13 +41,16 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
 
 - Dữ liệu từ server → TanStack Query. Query key dạng mảng:
   `['documents']`, `['document', id]`, `['pages', id, pageNo]`,
-  `['chunks', id]`. Khai báo ở `web/lib/query-client.ts`.
+  `['chunks', id]`. Khai báo ở `web/src/lib/query-client.ts`.
 - State giao diện dùng chung giữa hai cột → Zustand store
   `ask-store.ts`.
 - State chỉ một component quan tâm → `useState` tại chỗ.
 - Không bao giờ nhét dữ liệu server vào Zustand.
-- Server Component là mặc định. Chỉ thêm `"use client"` khi
-  thật sự cần hook hoặc sự kiện.
+- Route khai báo một chỗ ở `web/src/main.tsx` (`createBrowserRouter`).
+  `RouterProvider` import từ `react-router/dom`, còn lại từ `react-router`.
+- Không setState đồng bộ trong effect (luật `react-hooks/set-state-in-effect`):
+  state phụ thuộc prop thì tính ra khi render hoặc reset ngay trong lúc render,
+  setState chỉ nằm trong callback (sự kiện, EventSource, timer).
 - Mọi `EventSource` phải có `es.close()` trong hàm cleanup, và đóng
   ngay khi nhận `done`/`error` — nếu không trình duyệt tự kết nối lại
   và hỏi lại từ đầu.
@@ -80,7 +83,7 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
 ```bash
 docker compose up --build                  # chạy db + api; migration tự chạy khi api khởi động
 cd api && go test ./... && go vet ./...    # kiểm tra api (test tích hợp bị skip)
-cd web && npm run dev                      # frontend ở http://localhost:3000
+cd web && npm run dev                      # frontend (Vite) ở http://localhost:3000
 cd web && npm run build && npm run lint    # kiểm tra frontend
 ```
 
@@ -110,7 +113,7 @@ Chưa có: Makefile (`make migrate`, `make seed`), Dockerfile cho `web/`.
 | `LLM_EMBED_MODEL` | Model embedding của Gemini, mặc định `gemini-embedding-001` (phải ra được 768 chiều) |
 | `LLM_CHAT_MODEL` | Model trả lời của Gemini, mặc định `gemini-3.5-flash` |
 | `ALLOWED_ORIGINS` | CORS, phân tách bằng dấu phẩy, mặc định `http://localhost:3000`; `*` là mọi origin |
-| `NEXT_PUBLIC_API_URL` | (web) Địa chỉ API, mặc định `http://localhost:8080`; xem `web/.env.example` |
+| `VITE_API_URL` | (web) Địa chỉ API, mặc định `http://localhost:8080`. Nhúng vào bundle lúc build; xem `web/.env.example` |
 
 Xem `.env.example` để có mẫu đầy đủ.
 
