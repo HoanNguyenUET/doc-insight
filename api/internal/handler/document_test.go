@@ -10,6 +10,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -20,6 +22,7 @@ import (
 )
 
 type fakeDocService struct {
+	files      map[string]string // id -> đường dẫn file PDF
 	uploadErr  error
 	gotName    string
 	gotBody    []byte
@@ -91,6 +94,19 @@ func (f *fakeDocService) Chunks(_ context.Context, id string, page int) ([]repos
 		return nil, service.ErrDocNotReady
 	}
 	return nil, nil
+}
+
+func (f *fakeDocService) File(_ context.Context, id string) (*os.File, repository.Document, error) {
+	d, ok := f.docs[id]
+	if !ok {
+		return nil, repository.Document{}, service.ErrDocNotFound
+	}
+	path, ok := f.files[id]
+	if !ok {
+		return nil, repository.Document{}, service.ErrFileMissing
+	}
+	file, err := os.Open(path)
+	return file, d, err
 }
 
 func docRouter(svc DocumentService) http.Handler {
@@ -390,5 +406,62 @@ func TestCORS(t *testing.T) {
 	req.Header.Set("Origin", "https://any.example")
 	if rec, _ := do(star, req); rec.Header().Get("Access-Control-Allow-Origin") != "https://any.example" {
 		t.Error(`"*" should allow any origin`)
+	}
+}
+
+func TestFile(t *testing.T) {
+	id, missing := "33333333-3333-3333-3333-333333333333", "44444444-4444-4444-4444-444444444444"
+	pdf := []byte("%PDF-1.4 nội dung giả")
+	path := filepath.Join(t.TempDir(), id+".pdf")
+	if err := os.WriteFile(path, pdf, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	svc := &fakeDocService{
+		docs: map[string]repository.Document{
+			id:      {ID: id, Filename: "báo cáo.pdf"},
+			missing: {ID: missing, Filename: "x.pdf"},
+		},
+		files: map[string]string{id: path},
+	}
+	h := docRouter(svc)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/documents/"+id+"/file", nil)
+	req.Header.Set("Origin", "http://localhost:3000")
+	rec, _ := do(h, req)
+	if rec.Code != 200 || !bytes.Equal(rec.Body.Bytes(), pdf) {
+		t.Fatalf("GET file = %d %q", rec.Code, rec.Body)
+	}
+	hd := rec.Header()
+	if hd.Get("Content-Type") != "application/pdf" || !strings.HasPrefix(hd.Get("Content-Disposition"), "inline") ||
+		!strings.Contains(hd.Get("Content-Disposition"), "filename*=UTF-8''b%C3%A1o%20c%C3%A1o.pdf") {
+		t.Errorf("headers = %v", hd)
+	}
+	// pdf.js đọc file theo từng khúc: cần Range và đọc được Content-Range qua CORS.
+	if exp := hd.Get("Access-Control-Expose-Headers"); !strings.Contains(exp, "Content-Range") || !strings.Contains(exp, "Accept-Ranges") {
+		t.Errorf("Expose-Headers = %q", exp)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/documents/"+id+"/file", nil)
+	req.Header.Set("Range", "bytes=0-4")
+	if rec, _ := do(h, req); rec.Code != http.StatusPartialContent || rec.Body.String() != "%PDF-" {
+		t.Errorf("Range = %d %q, want 206 %%PDF-", rec.Code, rec.Body)
+	}
+
+	pre := httptest.NewRequest(http.MethodOptions, "/api/documents/"+id+"/file", nil)
+	pre.Header.Set("Origin", "http://localhost:3000")
+	pre.Header.Set("Access-Control-Request-Method", "GET")
+	pre.Header.Set("Access-Control-Request-Headers", "range")
+	if rec, _ := do(h, pre); !strings.Contains(rec.Header().Get("Access-Control-Allow-Headers"), "Range") {
+		t.Errorf("preflight Allow-Headers = %q", rec.Header().Get("Access-Control-Allow-Headers"))
+	}
+
+	for _, tt := range []struct{ id, want string }{
+		{missing, service.ErrFileMissing.Error()},
+		{"55555555-5555-5555-5555-555555555555", service.ErrDocNotFound.Error()},
+	} {
+		rec, got := do(h, httptest.NewRequest(http.MethodGet, "/api/documents/"+tt.id+"/file", nil))
+		if rec.Code != 404 || got["error"] != tt.want {
+			t.Errorf("GET %s = %d %s, want 404 %q", tt.id, rec.Code, rec.Body, tt.want)
+		}
 	}
 }

@@ -78,6 +78,7 @@ export const api = {
   deleteDocument: (id: string) => request<void>(`/api/documents/${id}`, { method: "DELETE" }),
   getPage: (id: string, pageNo: number) => request<PageData>(`/api/documents/${id}/pages/${pageNo}`),
   listChunks: (id: string) => request<{ chunks: Chunk[] }>(`/api/documents/${id}/chunks`).then((r) => r.chunks),
+  fileUrl: (id: string) => `${API_URL}/api/documents/${id}/file`,
   askUrl: (id: string, question: string) => `${API_URL}/api/documents/${id}/ask?q=${encodeURIComponent(question)}`,
 };
 

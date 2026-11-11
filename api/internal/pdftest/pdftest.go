@@ -12,6 +12,17 @@ import (
 )
 
 func Build(pages ...string) []byte {
+	return build(false, pages)
+}
+
+// BuildTeX giống Build nhưng bắt chước PDF do pdfTeX sinh: mỗi dòng in bằng
+// toán tử TJ, font là bản subset (tên có tiền tố "ABCDEF+") và bảng mã đặt
+// byte 10 là /Omega như mã OT1 của TeX.
+func BuildTeX(pages ...string) []byte {
+	return build(true, pages)
+}
+
+func build(tex bool, pages []string) []byte {
 	var objs []string // objs[i] là thân object số i+1
 	add := func(body string) int {
 		objs = append(objs, body)
@@ -21,7 +32,12 @@ func Build(pages ...string) []byte {
 	add("") // 1: Catalog, điền sau khi biết số object của Pages
 	add("") // 2: Pages
 	widths := strings.TrimSpace(strings.Repeat("600 ", 126-32+1))
-	font := add(fmt.Sprintf("<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding /FirstChar 32 /LastChar 126 /Widths [%s] >>", widths))
+	baseFont, encoding := "Courier", "/WinAnsiEncoding"
+	if tex {
+		baseFont = "ABCDEF+Courier"
+		encoding = "<< /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [10 /Omega] >>"
+	}
+	font := add(fmt.Sprintf("<< /Type /Font /Subtype /Type1 /BaseFont /%s /Encoding %s /FirstChar 32 /LastChar 126 /Widths [%s] >>", baseFont, encoding, widths))
 
 	var kids []string
 	for _, text := range pages {
@@ -31,7 +47,11 @@ func Build(pages ...string) []byte {
 			if i > 0 {
 				s.WriteString("T*\n")
 			}
-			if line != "" {
+			switch {
+			case line == "":
+			case tex:
+				fmt.Fprintf(&s, "[(%s)] TJ\n", escape(line))
+			default:
 				fmt.Fprintf(&s, "(%s) Tj\n", escape(line))
 			}
 		}

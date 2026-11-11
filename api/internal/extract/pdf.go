@@ -42,22 +42,50 @@ func PDF(ctx context.Context, r io.ReaderAt, size int64) (pages []Page, err erro
 		}
 		var text string
 		if p := rd.Page(i); !p.V.IsNull() {
-			text = pageText(p.Content().Text)
+			text = pageText(p.Content().Text, fakeNewlines(p))
 		}
 		pages = append(pages, Page{Number: i, Text: text})
 	}
 	return pages, nil
 }
 
+// fakeNewlines trả, theo tên font, chữ mà glyph "\n" giả bị giải mã thành.
+// Thư viện chèn "\n" sau mỗi toán tử TJ rồi giải mã qua bảng mã của font:
+// font thường giữ nguyên "\n" (cleanGlyph bỏ đi), nhưng font TeX biến byte 10
+// thành Ω (mã OT1) hay ⊗ (mã OMS). Ký tự thật trùng byte 10 của các font này
+// cũng bị bỏ theo; chấp nhận được vì hiếm hơn nhiều.
+func fakeNewlines(p pdf.Page) map[string]string {
+	fake := map[string]string{}
+	for _, name := range p.Fonts() {
+		f := p.Font(name)
+		if s := f.Encoder().Decode("\n"); s != "\n" && s != "" {
+			fake[fontName(f.BaseFont())] = s
+		}
+	}
+	return fake
+}
+
+// fontName bỏ tiền tố subset ("QGUKZH+CMSY10" -> "CMSY10"): thư viện ghi
+// tên font của glyph không kèm tiền tố này.
+func fontName(base string) string {
+	if i := strings.IndexByte(base, '+'); i == 6 {
+		return base[i+1:]
+	}
+	return base
+}
+
 // pageText dựng lại văn bản từ các glyph (theo thứ tự trong content stream)
 // dựa vào toạ độ: đổi dòng khi Y đổi, cách đoạn ("\n\n") khi khoảng cách dòng
 // lớn hoặc nhảy ngược lên (sang cột/khối khác), chèn dấu cách khi có khoảng
 // trống ngang giữa hai glyph mà PDF không ghi ký tự cách.
-func pageText(glyphs []pdf.Text) string {
+func pageText(glyphs []pdf.Text, fake map[string]string) string {
 	var b strings.Builder
 	var prev pdf.Text
 	have := false
 	for _, g := range glyphs {
+		if f, ok := fake[fontName(g.Font)]; ok && g.S == f {
+			continue
+		}
 		s := cleanGlyph(g.S)
 		if s == "" {
 			continue

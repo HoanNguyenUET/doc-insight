@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
+	"os"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -20,6 +22,7 @@ type DocumentService interface {
 	Delete(ctx context.Context, id string) error
 	Page(ctx context.Context, id string, number int) (service.PageView, error)
 	Chunks(ctx context.Context, id string, page int) ([]repository.Chunk, error)
+	File(ctx context.Context, id string) (*os.File, repository.Document, error)
 }
 
 type DocumentHandler struct {
@@ -114,6 +117,22 @@ func (h *DocumentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // Page trả văn bản một trang kèm các chunk trên trang đó.
+// File trả file PDF gốc để xem trong trình duyệt. http.ServeContent lo
+// Range (pdf.js đọc file theo từng khúc) và If-Modified-Since.
+func (h *DocumentHandler) File(w http.ResponseWriter, r *http.Request) {
+	f, doc, err := h.svc.File(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	defer f.Close()
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", "inline; filename*=UTF-8''"+url.PathEscape(doc.Filename))
+	// File của một id không bao giờ đổi.
+	w.Header().Set("Cache-Control", "private, max-age=86400, immutable")
+	http.ServeContent(w, r, "", doc.CreatedAt, f)
+}
+
 func (h *DocumentHandler) Page(w http.ResponseWriter, r *http.Request) {
 	n, err := strconv.Atoi(chi.URLParam(r, "page"))
 	if err != nil || n < 1 {

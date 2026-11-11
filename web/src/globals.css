@@ -100,6 +100,7 @@
 @theme {
   --animate-blip: blip 1.4s infinite;
   --animate-flash: flash 1.5s;
+  --animate-flash-overlay: flash-overlay 1.5s;
   --animate-caret: caret 1.1s step-end infinite;
 
   @keyframes blip {
@@ -122,6 +123,18 @@
     75% {
       background: var(--marker-strong);
       box-shadow: 0 0 0 5px var(--marker-strong);
+    }
+  }
+  /* Như flash nhưng nền trong suốt: tô đè lên chữ của trang PDF (canvas)
+     mà không che mất chữ. */
+  @keyframes flash-overlay {
+    0%,
+    100% {
+      background: rgb(201 115 27 / 0.2);
+    }
+    25%,
+    75% {
+      background: rgb(201 115 27 / 0.45);
     }
   }
   @keyframes caret {

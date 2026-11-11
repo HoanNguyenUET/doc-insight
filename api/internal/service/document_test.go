@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -279,6 +280,44 @@ func TestPage(t *testing.T) {
 			}
 			if p.Text != tt.wantText || len(p.Chunks) != tt.wantChunks || p.Chunks == nil || p.PageCount != 3 || p.Number != tt.number {
 				t.Errorf("page = %+v", p)
+			}
+		})
+	}
+}
+
+func TestFile(t *testing.T) {
+	svc, _, _, _ := newSvc(t)
+	ctx := context.Background()
+	doc, err := svc.Upload(ctx, "báo cáo.pdf", bytes.NewReader(samplePDF))
+	if err != nil {
+		t.Fatal(err)
+	}
+	missing, _ := svc.Upload(ctx, "mat.pdf", bytes.NewReader(samplePDF))
+	os.Remove(svc.FilePath(missing.ID))
+
+	tests := []struct {
+		name    string
+		id      string
+		wantErr error
+	}{
+		{"ok", doc.ID, nil},
+		{"no such document", "00000000-0000-0000-0000-000000000000", ErrDocNotFound},
+		// Row còn nhưng file đã mất (đĩa tạm của Render bị xoá khi deploy lại).
+		{"file gone", missing.ID, ErrFileMissing},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, got, err := svc.File(ctx, tt.id)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("err = %v, want %v", err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
+			defer f.Close()
+			body, _ := io.ReadAll(f)
+			if !bytes.Equal(body, samplePDF) || got.ID != doc.ID || got.Filename != "báo cáo.pdf" {
+				t.Errorf("File = %d bytes, doc %+v", len(body), got)
 			}
 		})
 	}

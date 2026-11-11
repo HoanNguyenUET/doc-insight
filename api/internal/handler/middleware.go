@@ -80,7 +80,8 @@ func cors(allowedOrigins []string) func(http.Handler) http.Handler {
 			}
 			if ok {
 				h.Set("Access-Control-Allow-Origin", origin)
-				h.Set("Access-Control-Expose-Headers", middleware.RequestIDHeader)
+				// Accept-Ranges/Content-Range: pdf.js cần đọc để tải PDF theo khúc.
+				h.Set("Access-Control-Expose-Headers", middleware.RequestIDHeader+", Accept-Ranges, Content-Range, Content-Length")
 			}
 
 			// Preflight: trả lời luôn, không đi tiếp vào router (router sẽ 405).
@@ -89,7 +90,7 @@ func cors(allowedOrigins []string) func(http.Handler) http.Handler {
 				h.Add("Vary", "Access-Control-Request-Headers")
 				if ok {
 					h.Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-					h.Set("Access-Control-Allow-Headers", "Content-Type, "+middleware.RequestIDHeader)
+					h.Set("Access-Control-Allow-Headers", "Content-Type, Range, "+middleware.RequestIDHeader)
 					h.Set("Access-Control-Max-Age", "600")
 				}
 				w.WriteHeader(http.StatusNoContent)

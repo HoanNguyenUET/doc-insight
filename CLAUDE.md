@@ -37,7 +37,9 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
 ## Quy ước frontend
 
 - Đặc tả giao diện: `docs/design/mockup.html` (mở bằng trình duyệt).
-  Bố cục, màu, chữ và luồng tương tác của `web/` bám theo file này.
+  Bố cục, màu, chữ và luồng tương tác của `web/` bám theo file này. Khác
+  mockup: cột trái vẽ trang PDF thật bằng pdf.js (`react-pdf`) từ
+  `GET /api/documents/{id}/file`, không phải văn bản trích đặt trên tờ giấy giả.
 
 - Dữ liệu từ server → TanStack Query. Query key dạng mảng:
   `['documents']`, `['document', id]`, `['pages', id, pageNo]`,
@@ -67,6 +69,12 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
 - **Chunk giữ `page_number`, `char_start`, `char_end`**: đây
   là điều kiện để nhảy tới vị trí trong tài liệu. Không được
   bỏ.
+- **Tô sáng trên PDF thật bằng so khớp văn bản**: offset của chunk tính
+  trên văn bản do Go trích, còn text layer của pdf.js là văn bản khác cách
+  ngắt dòng. `web/src/lib/pdf-highlight.ts` chuẩn hoá cả hai (NFKC, chữ
+  thường, chỉ giữ chữ và số), tìm đoạn nguồn rồi ánh xạ về từng item.
+  Callback truyền cho `<Page>` của react-pdf phải cố định (`useCallback`),
+  nếu không text layer vẽ lại liên tục.
 - **Bảng `pages` lưu văn bản từng trang**, cùng transaction với
   chunk. Offset của chunk tính theo rune trên text này; frontend
   cắt bằng `Array.from`, không dùng `slice` trên UTF-16. Tài liệu

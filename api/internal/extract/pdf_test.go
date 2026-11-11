@@ -40,6 +40,20 @@ func TestPDFKeepsPageNumbers(t *testing.T) {
 	}
 }
 
+// Thư viện pdf chèn glyph "\n" giả sau mỗi TJ và giải mã nó qua bảng mã của
+// font. Với font TeX, byte 10 là Ω (OT1) hay ⊗ (OMS), nên ký tự rác này hiện
+// giữa văn bản.
+func TestPDFDropsFakeNewlineGlyphs(t *testing.T) {
+	pages, err := extractBytes(t, pdftest.BuildTeX("Nguyen Thuc Hoan\nEmail: a@b.c\n\nTechnical Skills"))
+	if err != nil {
+		t.Fatalf("PDF: %v", err)
+	}
+	want := "Nguyen Thuc Hoan\nEmail: a@b.c\n\nTechnical Skills"
+	if len(pages) != 1 || pages[0].Text != want {
+		t.Errorf("text = %q, want %q", pages[0].Text, want)
+	}
+}
+
 func TestPDFRejectsGarbage(t *testing.T) {
 	for name, data := range map[string][]byte{
 		"not a pdf": []byte("hello world"),
@@ -127,7 +141,7 @@ func TestPageTextLayout(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := pageText(tt.glyphs); got != tt.want {
+			if got := pageText(tt.glyphs, nil); got != tt.want {
 				t.Errorf("pageText = %q, want %q", got, tt.want)
 			}
 		})

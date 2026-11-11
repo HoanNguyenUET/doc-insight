@@ -23,6 +23,7 @@ var (
 	ErrFileTooLarge = errors.New("file vượt quá 50 MB")
 	ErrBusy         = errors.New("server đang bận xử lý tài liệu khác, hãy thử lại sau")
 	ErrPageNotFound = errors.New("không có trang này")
+	ErrFileMissing  = errors.New("không còn file PDF gốc của tài liệu này, hãy tải lên lại")
 )
 
 const MaxUploadBytes = 50 << 20
@@ -206,6 +207,23 @@ func (s *DocumentService) Chunks(ctx context.Context, id string, page int) ([]re
 		return nil, err
 	}
 	return s.repo.ListChunks(ctx, doc.ID, page)
+}
+
+// File mở file PDF gốc để trả về cho trình duyệt; người gọi đóng file.
+// Không cần tài liệu đã xử lý xong: file có từ lúc tải lên.
+func (s *DocumentService) File(ctx context.Context, id string) (*os.File, repository.Document, error) {
+	doc, err := s.Get(ctx, id)
+	if err != nil {
+		return nil, repository.Document{}, err
+	}
+	f, err := os.Open(s.FilePath(doc.ID))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, repository.Document{}, ErrFileMissing
+	}
+	if err != nil {
+		return nil, repository.Document{}, fmt.Errorf("open pdf %s: %w", doc.ID, err)
+	}
+	return f, doc, nil
 }
 
 // Delete xoá row (chunk xoá theo) rồi xoá file. Nếu worker đang xử lý tài
