@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -18,6 +19,10 @@ type Config struct {
 	LogLevel    slog.Level
 	LLMProvider string
 	LLMAPIKey   string
+	// StorageDir chứa file PDF đã tải lên (STORAGE_DIR).
+	StorageDir string
+	// AllowedOrigins cho CORS, từ ALLOWED_ORIGINS phân tách bằng dấu phẩy.
+	AllowedOrigins []string
 }
 
 func (c Config) Addr() string {
@@ -31,6 +36,7 @@ func Load() (Config, error) {
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		LLMProvider: strings.ToLower(getenv("LLM_PROVIDER", "mock")),
 		LLMAPIKey:   os.Getenv("LLM_API_KEY"),
+		StorageDir:  getenv("STORAGE_DIR", "storage"),
 	}
 
 	port, err := intEnv("PORT", 8080)
@@ -53,6 +59,12 @@ func Load() (Config, error) {
 		errs = append(errs, fmt.Errorf("LOG_LEVEL: %w", err))
 	}
 
+	origins, err := parseOrigins(getenv("ALLOWED_ORIGINS", "http://localhost:3000"))
+	if err != nil {
+		errs = append(errs, err)
+	}
+	cfg.AllowedOrigins = origins
+
 	if cfg.DatabaseURL == "" {
 		errs = append(errs, errors.New("thiếu DATABASE_URL"))
 	}
@@ -71,6 +83,32 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("config: %w", err)
 	}
 	return cfg, nil
+}
+
+// parseOrigins nhận "*" hoặc các origin dạng scheme://host[:port]. Origin có
+// đường dẫn hay dấu "/" cuối không bao giờ khớp header Origin, nên báo lỗi
+// thay vì để CORS hỏng âm thầm.
+func parseOrigins(v string) ([]string, error) {
+	var out []string
+	var errs []error
+	for _, o := range strings.Split(v, ",") {
+		o = strings.TrimSpace(o)
+		if o == "" {
+			continue
+		}
+		if o != "*" {
+			u, err := url.Parse(o)
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.Path != "" || u.RawQuery != "" {
+				errs = append(errs, fmt.Errorf("ALLOWED_ORIGINS: %q không phải origin dạng http(s)://host[:port]", o))
+				continue
+			}
+		}
+		out = append(out, o)
+	}
+	if len(out) == 0 && len(errs) == 0 {
+		errs = append(errs, errors.New("ALLOWED_ORIGINS rỗng"))
+	}
+	return out, errors.Join(errs...)
 }
 
 func getenv(key, def string) string {

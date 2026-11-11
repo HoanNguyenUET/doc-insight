@@ -13,9 +13,16 @@ import (
 
 	"github.com/HoanNguyenUET/doc-insight/api/internal/config"
 	"github.com/HoanNguyenUET/doc-insight/api/internal/handler"
+	"github.com/HoanNguyenUET/doc-insight/api/internal/ingest"
 	"github.com/HoanNguyenUET/doc-insight/api/internal/repository"
 	"github.com/HoanNguyenUET/doc-insight/api/internal/service"
 	"github.com/HoanNguyenUET/doc-insight/api/migrations"
+)
+
+const (
+	ingestWorkers    = 4
+	ingestQueueSize  = 100
+	ingestJobTimeout = 10 * time.Minute
 )
 
 func main() {
@@ -49,8 +56,25 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("migrate: %w", err)
 	}
 
+	if err := os.MkdirAll(cfg.StorageDir, 0o750); err != nil {
+		return fmt.Errorf("create STORAGE_DIR: %w", err)
+	}
+
+	// Pool dùng context riêng: chỉ dừng sau khi HTTP server đã ngừng nhận
+	// upload, và phải dừng trước khi đóng DB (defer chạy ngược thứ tự).
+	pool := ingest.NewPool(ingest.NewPipeline(db, ingest.NoopEmbedder{}), ingestWorkers, ingestQueueSize, ingestJobTimeout)
+	poolCtx, stopPool := context.WithCancel(context.WithoutCancel(ctx))
+	pool.Start(poolCtx)
+	defer func() {
+		stopPool()
+		pool.Wait()
+		slog.Info("ingest workers stopped")
+	}()
+
 	router := handler.NewRouter(handler.Deps{
-		Health: handler.NewHealthHandler(service.NewHealthService(db)),
+		Health:         handler.NewHealthHandler(service.NewHealthService(db)),
+		Documents:      handler.NewDocumentHandler(service.NewDocumentService(db, pool, cfg.StorageDir)),
+		AllowedOrigins: cfg.AllowedOrigins,
 	})
 
 	srv := &http.Server{
@@ -63,7 +87,8 @@ func run(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		slog.Info("http server listening", "addr", srv.Addr, "llm_provider", cfg.LLMProvider)
+		slog.Info("http server listening", "addr", srv.Addr, "llm_provider", cfg.LLMProvider,
+			"storage_dir", cfg.StorageDir, "allowed_origins", cfg.AllowedOrigins, "ingest_workers", ingestWorkers)
 		errCh <- srv.ListenAndServe()
 	}()
 

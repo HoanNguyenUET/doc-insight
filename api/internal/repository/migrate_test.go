@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -12,6 +13,8 @@ import (
 )
 
 var realMigrations = migrations.FS
+
+var realVersions = []string{"000001_init", "000002_status_pending"}
 
 func appliedVersions(t *testing.T, db *DB) []string {
 	t.Helper()
@@ -51,8 +54,8 @@ func TestMigrateFreshDatabase(t *testing.T) {
 	db := newMigratedDB(t)
 	ctx := context.Background()
 
-	if got := appliedVersions(t, db); len(got) != 1 || got[0] != "000001_init" {
-		t.Errorf("applied versions = %v, want [000001_init]", got)
+	if got := appliedVersions(t, db); fmt.Sprint(got) != fmt.Sprint(realVersions) {
+		t.Errorf("applied versions = %v, want %v", got, realVersions)
 	}
 	for _, table := range []string{"documents", "chunks"} {
 		if !tableExists(t, db, table) {
@@ -89,8 +92,8 @@ func TestMigrateIsIdempotent(t *testing.T) {
 	if err := db.Migrate(context.Background(), realMigrations); err != nil {
 		t.Fatalf("second Migrate: %v", err)
 	}
-	if got := appliedVersions(t, db); len(got) != 1 {
-		t.Errorf("applied versions after rerun = %v, want exactly one", got)
+	if got := appliedVersions(t, db); fmt.Sprint(got) != fmt.Sprint(realVersions) {
+		t.Errorf("applied versions after rerun = %v, want %v", got, realVersions)
 	}
 }
 
@@ -128,8 +131,8 @@ func TestMigrateConcurrentInstances(t *testing.T) {
 			t.Errorf("instance %d: Migrate: %v", i, err)
 		}
 	}
-	if got := appliedVersions(t, dbs[0]); len(got) != 1 {
-		t.Errorf("applied versions = %v, want exactly one", got)
+	if got := appliedVersions(t, dbs[0]); fmt.Sprint(got) != fmt.Sprint(realVersions) {
+		t.Errorf("applied versions = %v, want %v (each exactly once)", got, realVersions)
 	}
 }
 

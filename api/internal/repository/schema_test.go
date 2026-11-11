@@ -24,7 +24,7 @@ func insertDocument(t *testing.T, db *DB) string {
 func embedding(dim int, at int) string {
 	v := make([]float32, dim)
 	v[at%dim] = 1
-	return vecLiteral(v)
+	return vectorLiteral(v)
 }
 
 func pgCode(err error) string {
@@ -89,8 +89,8 @@ func TestDocumentConstraints(t *testing.T) {
 	).Scan(&status, &progress, &chunkCount); err != nil {
 		t.Fatalf("insert with defaults: %v", err)
 	}
-	if status != "uploaded" || progress != 0 || chunkCount != 0 {
-		t.Errorf("defaults = (%s, %d, %d), want (uploaded, 0, 0)", status, progress, chunkCount)
+	if status != "pending" || progress != 0 || chunkCount != 0 {
+		t.Errorf("defaults = (%s, %d, %d), want (pending, 0, 0)", status, progress, chunkCount)
 	}
 
 	tests := []struct {

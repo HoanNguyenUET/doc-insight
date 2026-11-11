@@ -1,51 +1,48 @@
-// Package handler chứa HTTP router và các handler.
+// Package handler chứa HTTP router và các handler. Handler chỉ validate
+// request và gọi service; logic nằm ở service, SQL nằm ở repository.
 package handler
 
 import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
 type Deps struct {
-	Health *HealthHandler
+	Health         *HealthHandler
+	Documents      *DocumentHandler
+	AllowedOrigins []string
 }
 
 func NewRouter(d Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
+	r.Use(requestIDHeader)
 	r.Use(middleware.RealIP)
 	r.Use(requestLogger)
-	r.Use(middleware.Recoverer)
+	r.Use(recoverer)
+	r.Use(cors(d.AllowedOrigins))
 
 	r.Get("/healthz", d.Health.Healthz)
-	return r
-}
+	if d.Documents != nil {
+		r.Route("/api/documents", func(r chi.Router) {
+			r.Post("/", d.Documents.Upload)
+			r.Get("/", d.Documents.List)
+			r.Get("/{id}", d.Documents.Get)
+			r.Delete("/{id}", d.Documents.Delete)
+		})
+	}
 
-func requestLogger(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-		next.ServeHTTP(ww, r)
-
-		level := slog.LevelInfo
-		if r.URL.Path == "/healthz" && ww.Status() < 500 {
-			// Render gọi healthz liên tục; hạ mức để không làm nhiễu log.
-			level = slog.LevelDebug
-		}
-		slog.Log(r.Context(), level, "http request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status", ww.Status(),
-			"bytes", ww.BytesWritten(),
-			"duration_ms", time.Since(start).Milliseconds(),
-			"request_id", middleware.GetReqID(r.Context()),
-		)
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusNotFound, errorBody{Error: "không tìm thấy", RequestID: middleware.GetReqID(r.Context())})
 	})
+	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusMethodNotAllowed, errorBody{Error: "phương thức không được hỗ trợ", RequestID: middleware.GetReqID(r.Context())})
+	})
+	return r
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

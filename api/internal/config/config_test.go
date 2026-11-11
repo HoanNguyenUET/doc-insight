@@ -10,7 +10,7 @@ import (
 // để môi trường của máy chạy test không lọt vào.
 func setEnv(t *testing.T, env map[string]string) {
 	t.Helper()
-	for _, k := range []string{"PORT", "DATABASE_URL", "DB_MAX_CONNS", "LOG_LEVEL", "LLM_PROVIDER", "LLM_API_KEY"} {
+	for _, k := range []string{"PORT", "DATABASE_URL", "DB_MAX_CONNS", "LOG_LEVEL", "LLM_PROVIDER", "LLM_API_KEY", "STORAGE_DIR", "ALLOWED_ORIGINS"} {
 		t.Setenv(k, env[k])
 	}
 }
@@ -38,6 +38,45 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.LLMProvider != "mock" {
 		t.Errorf("LLMProvider = %q, want mock", cfg.LLMProvider)
+	}
+	if cfg.StorageDir != "storage" {
+		t.Errorf("StorageDir = %q, want storage", cfg.StorageDir)
+	}
+	if len(cfg.AllowedOrigins) != 1 || cfg.AllowedOrigins[0] != "http://localhost:3000" {
+		t.Errorf("AllowedOrigins = %q, want [http://localhost:3000]", cfg.AllowedOrigins)
+	}
+}
+
+func TestLoadAllowedOrigins(t *testing.T) {
+	tests := []struct {
+		env     string
+		want    []string
+		wantErr string
+	}{
+		{env: " https://app.example.com , http://localhost:3000,", want: []string{"https://app.example.com", "http://localhost:3000"}},
+		{env: "*", want: []string{"*"}},
+		{env: "https://app.example.com/", wantErr: `"https://app.example.com/"`},
+		{env: "app.example.com", wantErr: `"app.example.com"`},
+		{env: "ftp://x.com", wantErr: `"ftp://x.com"`},
+		{env: " , ", wantErr: "ALLOWED_ORIGINS rỗng"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.env, func(t *testing.T) {
+			setEnv(t, map[string]string{"DATABASE_URL": testDBURL, "ALLOWED_ORIGINS": tt.env})
+			cfg, err := Load()
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("err = %v, want it to mention %s", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if strings.Join(cfg.AllowedOrigins, "|") != strings.Join(tt.want, "|") {
+				t.Errorf("AllowedOrigins = %q, want %q", cfg.AllowedOrigins, tt.want)
+			}
+		})
 	}
 }
 

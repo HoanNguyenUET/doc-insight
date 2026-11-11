@@ -13,3 +13,6 @@ node_modules/
 out/
 
 .DS_Store
+
+# File PDF tải lên khi chạy local
+/api/storage/

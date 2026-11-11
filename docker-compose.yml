@@ -27,6 +27,10 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       LLM_API_KEY: ${LLM_API_KEY:-}
+      STORAGE_DIR: /data/uploads
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+    volumes:
+      - uploads:/data/uploads
     ports:
       - "${API_PORT:-8080}:8080"
     healthcheck:
@@ -37,3 +41,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:
