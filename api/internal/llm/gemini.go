@@ -59,6 +59,10 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("gemini: HTTP %d: %s", e.StatusCode, e.Message)
 }
 
+// QuotaExhausted cho service nhận ra lỗi hết lượt gọi mà không phụ thuộc
+// package này (service kiểm tra qua interface).
+func (e *APIError) QuotaExhausted() bool { return e.StatusCode == http.StatusTooManyRequests }
+
 type GeminiProvider struct {
 	apiKey     string
 	embedModel string

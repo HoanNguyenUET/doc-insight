@@ -16,6 +16,7 @@ import (
 var (
 	ErrDocNotReady     = errors.New("tài liệu chưa xử lý xong")
 	ErrInvalidQuestion = errors.New("câu hỏi không hợp lệ")
+	ErrAIQuota         = errors.New("AI đã hết lượt dùng của gói miễn phí, hãy thử lại sau ít phút hoặc vào ngày mai")
 )
 
 const (
@@ -30,13 +31,15 @@ type AskRepo interface {
 
 // Source là một đoạn nguồn; câu trả lời trích dẫn nó bằng [[N]].
 type Source struct {
-	N         int     `json:"n"`
-	ChunkID   int64   `json:"chunk_id"`
-	Page      int     `json:"page"`
-	CharStart int     `json:"char_start"`
-	CharEnd   int     `json:"char_end"`
-	Content   string  `json:"content"`
-	Score     float64 `json:"score"`
+	N       int   `json:"n"`
+	ChunkID int64 `json:"chunk_id"`
+	// ChunkIndex là thứ tự đoạn trong tài liệu (từ 0).
+	ChunkIndex int     `json:"chunk_index"`
+	Page       int     `json:"page"`
+	CharStart  int     `json:"char_start"`
+	CharEnd    int     `json:"char_end"`
+	Content    string  `json:"content"`
+	Score      float64 `json:"score"`
 }
 
 // AnswerWriter nhận kết quả của Ask: WriteSources đúng một lần, trước mọi
@@ -83,7 +86,7 @@ func (s *AskService) Ask(ctx context.Context, documentID, question string, w Ans
 
 	vecs, err := s.llm.Embed(ctx, []string{question})
 	if err != nil {
-		return fmt.Errorf("embed câu hỏi: %w", err)
+		return markQuota(fmt.Errorf("embed câu hỏi: %w", err))
 	}
 	if len(vecs) != 1 || len(vecs[0]) == 0 {
 		return fmt.Errorf("embed câu hỏi: nhận %d vector", len(vecs))
@@ -95,7 +98,7 @@ func (s *AskService) Ask(ctx context.Context, documentID, question string, w Ans
 
 	sources := make([]Source, len(matches))
 	for i, m := range matches {
-		sources[i] = Source{N: i + 1, ChunkID: m.ID, Page: m.PageNumber, CharStart: m.CharStart, CharEnd: m.CharEnd, Content: m.Content, Score: m.Score}
+		sources[i] = Source{N: i + 1, ChunkID: m.ID, ChunkIndex: m.Index, Page: m.PageNumber, CharStart: m.CharStart, CharEnd: m.CharEnd, Content: m.Content, Score: m.Score}
 	}
 	if err := w.WriteSources(sources); err != nil {
 		return fmt.Errorf("gửi nguồn: %w", err)
@@ -103,10 +106,24 @@ func (s *AskService) Ask(ctx context.Context, documentID, question string, w Ans
 
 	tokens, err := s.stream(ctx, buildPrompt(question, sources), w)
 	if err != nil {
-		return err
+		return markQuota(err)
 	}
 	log.InfoContext(ctx, "ask: answered", "sources", len(sources), "tokens", tokens, "duration_ms", time.Since(start).Milliseconds())
 	return nil
+}
+
+// quotaError là lỗi provider trả khi hết lượt gọi (vd. Gemini 429). Khai báo
+// theo hành vi để service không phụ thuộc package llm.
+type quotaError interface{ QuotaExhausted() bool }
+
+// markQuota gắn ErrAIQuota vào lỗi hết lượt để handler báo cho người dùng một
+// câu dễ hiểu thay vì lỗi máy chủ chung chung.
+func markQuota(err error) error {
+	var q quotaError
+	if errors.As(err, &q) && q.QuotaExhausted() {
+		return fmt.Errorf("%w: %w", ErrAIQuota, err)
+	}
+	return err
 }
 
 // stream chạy LLM trong goroutine sống trong phạm vi request: nó dừng khi

@@ -1,12 +1,12 @@
 import { useParams } from "react-router";
 
-import { ChunkIndex } from "@/components/chunks/chunk-index";
+import { DocumentContent } from "@/components/content/document-content";
 
-export function ChunksPage() {
+export function ContentPage() {
   const { id = "" } = useParams();
   return (
     <div className="flex-1 overflow-y-auto px-9 py-[30px]">
-      <ChunkIndex id={id} />
+      <DocumentContent id={id} />
     </div>
   );
 }

@@ -56,9 +56,13 @@ func (h *AskHandler) Ask(w http.ResponseWriter, r *http.Request) {
 	case r.Context().Err() != nil:
 		slog.InfoContext(r.Context(), "ask: client disconnected", "tokens", sw.tokens,
 			"request_id", middleware.GetReqID(r.Context()))
-	case !sw.started:
+	case !sw.started && errorStatus(err) < http.StatusInternalServerError:
+		// Lỗi do request (câu hỏi sai, tài liệu không có/chưa xong): JSON kèm
+		// đúng HTTP status.
 		writeError(w, r, err)
 	default:
+		// Lỗi phía máy chủ, kể cả trước event đầu tiên: gửi event error vì
+		// EventSource không đọc được body của response khác 200.
 		_, msg := publicError(r, err)
 		if err := sw.event("error", errorEvent{Message: msg, RequestID: middleware.GetReqID(r.Context())}); err != nil {
 			slog.DebugContext(r.Context(), "ask: send error event", "err", err)
@@ -68,6 +72,7 @@ func (h *AskHandler) Ask(w http.ResponseWriter, r *http.Request) {
 
 type sourceEvent struct {
 	Ref       int     `json:"ref"`
+	Chunk     int     `json:"chunk"`
 	Page      int     `json:"page"`
 	CharStart int     `json:"char_start"`
 	CharEnd   int     `json:"char_end"`
@@ -105,6 +110,7 @@ func (s *sseWriter) WriteSources(sources []service.Source) error {
 	for i, src := range sources {
 		chunks[i] = sourceEvent{
 			Ref:       src.N,
+			Chunk:     src.ChunkIndex,
 			Page:      src.Page,
 			CharStart: src.CharStart,
 			CharEnd:   src.CharEnd,

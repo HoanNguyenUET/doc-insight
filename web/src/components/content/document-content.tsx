@@ -22,7 +22,7 @@ const fold = (s: string) =>
 // Màn "Nội dung tài liệu": giải thích bằng lời thường AI đã đọc tài liệu thế
 // nào, rồi liệt kê các đoạn theo trang. Số liệu kỹ thuật (ký tự, token) chỉ
 // hiện khi bật.
-export function ChunkIndex({ id }: { id: string }) {
+export function DocumentContent({ id }: { id: string }) {
   const { data: doc, error: docError } = useDocument(id);
   const ready = doc?.status === "ready";
   const { data: chunks, error: chunksError, isPending } = useChunks(id, ready);

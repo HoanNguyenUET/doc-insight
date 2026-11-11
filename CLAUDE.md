@@ -92,7 +92,7 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
 docker compose up --build                  # chạy db + api; migration tự chạy khi api khởi động
 cd api && go test ./... && go vet ./...    # kiểm tra api (test tích hợp bị skip)
 cd web && npm run dev                      # frontend (Vite) ở http://localhost:3000
-cd web && npm run build && npm run lint    # kiểm tra frontend
+cd web && npm test && npm run build && npm run lint    # kiểm tra frontend (Vitest)
 ```
 
 Test tích hợp cần Postgres có pgvector (db của docker compose):
@@ -129,6 +129,9 @@ Xem `.env.example` để có mẫu đầy đủ.
 
 - Header SSE phải có `X-Accel-Buffering: no`, nếu thiếu thì
   proxy đệm và streaming không chạy.
+- Lỗi của `/ask`: lỗi do request (4xx) trả JSON đúng status; lỗi phía máy
+  chủ (5xx, kể cả hết quota AI `ErrAIQuota`) gửi thành event `error`, kể cả
+  khi chưa có event nào, vì `EventSource` không đọc được body khác 200.
 - Đổi trang xong đừng scroll ngay — phần tử chưa có trong
   DOM. Effect phải phụ thuộc cả `[activeCitation, pageData]`.
 - Lưu chunk phải nằm trong một transaction.

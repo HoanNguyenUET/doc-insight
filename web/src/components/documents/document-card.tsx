@@ -34,7 +34,6 @@ export function DocumentCard({ doc }: { doc: Document }) {
   const meta = [
     formatBytes(doc.size_bytes),
     doc.page_count != null && `${doc.page_count} trang`,
-    doc.chunk_count > 0 && `${doc.chunk_count} đoạn`,
     formatDate(doc.created_at),
   ].filter(Boolean);
 
@@ -51,7 +50,7 @@ export function DocumentCard({ doc }: { doc: Document }) {
         }
       }}
       className={cn(
-        "group flex min-h-[168px] w-full flex-col bg-paper px-[21px] pt-5 pb-[17px] text-left transition-colors",
+        "group flex min-h-[132px] w-full flex-col bg-paper px-[21px] pt-5 pb-[17px] text-left transition-colors",
         ready ? "cursor-pointer hover:bg-white" : "cursor-default",
       )}
     >
@@ -74,12 +73,12 @@ export function DocumentCard({ doc }: { doc: Document }) {
       )}
       <div className="mt-auto flex items-center justify-between border-t border-rule-soft pt-[13px]">
         <span className="text-[13px] text-ink-3">
-          {!ready ? " " : convCount ? `${convCount} hội thoại` : "Chưa có hội thoại"}
+          {!ready ? " " : convCount ? `${convCount} hội thoại` : "Chưa có câu hỏi nào"}
         </span>
         <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
           {ready ? (
             <Button asChild variant="ghost" size="icon" className="size-[26px] text-ink-3 hover:bg-field">
-              <Link to={`/documents/${doc.id}/chunks`} aria-label="Xem nội dung" title="Xem nội dung tài liệu">
+              <Link to={`/documents/${doc.id}/content`} aria-label="Xem nội dung" title="Xem nội dung tài liệu">
                 <IndexIcon className="size-4 stroke-[1.7]" />
               </Link>
             </Button>

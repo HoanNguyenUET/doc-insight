@@ -594,3 +594,14 @@ func TestGeminiStreamSkipsExhaustedModel(t *testing.T) {
 		t.Errorf("after cooldown calls = %v, want [a b]", calls)
 	}
 }
+
+func TestAPIErrorQuotaExhausted(t *testing.T) {
+	for _, tt := range []struct {
+		status int
+		want   bool
+	}{{429, true}, {500, false}, {400, false}} {
+		if got := (&APIError{StatusCode: tt.status}).QuotaExhausted(); got != tt.want {
+			t.Errorf("status %d: QuotaExhausted = %v, want %v", tt.status, got, tt.want)
+		}
+	}
+}

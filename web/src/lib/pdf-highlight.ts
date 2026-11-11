@@ -2,14 +2,16 @@
 //
 // Offset của chunk tính trên văn bản do API trích (Go), còn text layer là
 // văn bản pdf.js tự đọc: cùng nội dung nhưng khác cách ngắt dòng, khoảng
-// trắng, ligature, thứ tự vài khối. Vì vậy so khớp trên chuỗi đã chuẩn hoá
-// (NFKC, chữ thường, chỉ giữ chữ và số) rồi ánh xạ ngược về từng item.
+// trắng, ligature, dạng dấu, thứ tự vài khối. Vì vậy so khớp trên chuỗi đã
+// chuẩn hoá (xem normalize) rồi ánh xạ ngược về từng item.
 
 // Phạm vi [start, end) theo code unit trong item.str của pdf.js.
 export type ItemRanges = Map<number, [number, number][]>;
 
 // Độ dài mỏ neo khi không khớp nguyên đoạn: khớp phần đầu và phần cuối.
+// Đuôi thử từ dài tới ngắn, vì đuôi dài dễ lấn vào chỗ hai bản đọc khác nhau.
 const ANCHOR = 24;
+const TAILS = [24, 16, 10];
 
 type Flat = { text: string; item: number[]; start: number[]; end: number[] };
 
@@ -32,12 +34,16 @@ function flatten(items: string[]): Flat {
   return out;
 }
 
-// Ký hiệu Ohm (U+2126) là rác do bản trích cũ sinh ra từ font TeX, không
-// có trong text layer. Phải bỏ trước NFKC: NFKC đổi nó thành chữ Omega.
+// Chuẩn hoá để so khớp: NFKD rồi bỏ dấu (pdf.js có khi trả tiếng Việt dạng
+// tổ hợp, từng dấu là một ký tự riêng), chữ thường, chỉ giữ chữ và số. Ký
+// hiệu Ohm (U+2126) là rác do bản trích cũ sinh ra từ font TeX, không có
+// trong text layer; phải bỏ trước NFKD vì NFKD đổi nó thành chữ Omega.
 function normalize(s: string): string {
   return s
-    .replace(/Ω/g, "")
-    .normalize("NFKC")
+    .replace(/\u2126/g, "")
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[đĐ]/g, "d")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]/gu, "");
 }
@@ -53,12 +59,18 @@ export function locate(items: string[], passage: string): ItemRanges | null {
   let to = from + needle.length;
   if (from < 0) {
     const head = needle.slice(0, ANCHOR);
-    const tail = needle.slice(-ANCHOR);
     from = hay.text.indexOf(head);
     if (from < 0) return null;
-    const t = hay.text.indexOf(tail, from + head.length);
-    // Đuôi ở quá xa thì coi như không khớp, chỉ tô đúng độ dài đoạn nguồn.
-    to = t >= 0 && t + tail.length - from <= needle.length * 1.5 ? t + tail.length : from + needle.length;
+    to = from + needle.length;
+    for (const n of TAILS) {
+      const tail = needle.slice(-n);
+      const t = hay.text.indexOf(tail, from + head.length);
+      // Đuôi ở quá xa thì coi như không khớp, chỉ tô đúng độ dài đoạn nguồn.
+      if (t >= 0 && t + tail.length - from <= needle.length * 1.5) {
+        to = t + tail.length;
+        break;
+      }
+    }
     to = Math.min(to, hay.text.length);
   }
 

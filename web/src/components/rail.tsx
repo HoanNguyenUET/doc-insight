@@ -24,6 +24,7 @@ export function Rail() {
   const lastDoc = useAskStore((s) => s.conversations.find((c) => c.id === s.activeConversation)?.docId);
   const docId = routeDoc ?? lastDoc;
   const [listOpen, setListOpen] = useState(true);
+  const docsActive = pathname === "/documents";
 
   const items: Item[] = [
     {
@@ -35,8 +36,8 @@ export function Rail() {
     { label: "Tải lên", href: "/documents/upload", active: pathname === "/documents/upload", icon: UploadIcon },
     {
       label: "Nội dung",
-      href: docId ? `/documents/${docId}/chunks` : null,
-      active: pathname.endsWith("/chunks"),
+      href: docId ? `/documents/${docId}/content` : null,
+      active: pathname.endsWith("/content"),
       icon: IndexIcon,
     },
   ];
@@ -45,15 +46,21 @@ export function Rail() {
     <aside className="flex h-screen w-[232px] flex-none flex-col border-r border-rule bg-paper">
       <div className="flex items-baseline gap-[9px] px-[22px] pt-[26px] pb-[22px]">
         <b className="text-[19px] font-semibold tracking-[-0.02em]">Doc Insight</b>
-        <span className="font-mono text-[10px] tracking-[0.04em] text-ink-3">v0.4</span>
+        <span className="font-mono text-[10px] tracking-[0.04em] text-ink-3">v{__APP_VERSION__}</span>
       </div>
       <nav className="flex min-h-0 flex-1 flex-col gap-px px-3 pb-4">
-        <div className="flex items-center gap-0.5">
+        {/* Một hàng: link "Tài liệu" và nút thu gọn nằm chung nền khi được chọn. */}
+        <div
+          className={cn(
+            "flex items-center rounded-[7px] transition-colors",
+            docsActive ? "bg-blueprint text-white" : "text-ink-2 hover:bg-field hover:text-ink",
+          )}
+        >
           <Link
             to="/documents"
             onClick={() => setListOpen(true)}
-            className={cn(ITEM, pathname === "/documents" ? "bg-blueprint font-medium text-white" : "hover:bg-field hover:text-ink")}
-            aria-current={pathname === "/documents" ? "page" : undefined}
+            className={cn(ITEM, "flex-1 text-inherit", docsActive && "font-medium")}
+            aria-current={docsActive ? "page" : undefined}
           >
             <DocsIcon className="size-[17px] flex-none stroke-[1.6]" />
             Tài liệu
@@ -63,7 +70,10 @@ export function Rail() {
             onClick={() => setListOpen((o) => !o)}
             aria-expanded={listOpen}
             aria-label={listOpen ? "Thu gọn danh sách tài liệu" : "Mở danh sách tài liệu"}
-            className="grid size-8 flex-none place-items-center rounded-[7px] text-ink-3 hover:bg-field hover:text-ink"
+            className={cn(
+              "mr-1 grid size-7 flex-none place-items-center rounded-[6px]",
+              docsActive ? "text-white/80 hover:bg-white/15" : "text-ink-3 hover:bg-paper",
+            )}
           >
             <ChevronIcon className={cn("size-4 stroke-[1.8] transition-transform", listOpen && "rotate-90")} />
           </button>

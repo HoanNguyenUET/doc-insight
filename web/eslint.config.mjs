@@ -15,6 +15,8 @@ export default tseslint.config(
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
     },
   },
+  // File entry không phải ranh giới fast refresh.
+  { files: ["src/main.tsx"], rules: { "react-refresh/only-export-components": "off" } },
   // Component shadcn sinh tự động xuất kèm biến thể (buttonVariants...).
   { files: ["src/components/ui/**"], rules: { "react-refresh/only-export-components": "off" } },
 );

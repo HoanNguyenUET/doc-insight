@@ -29,6 +29,7 @@ export function CitationChip({ messageId, n, source }: { messageId: string; n: n
           <span className={active ? "text-marker-soft" : "text-blueprint-soft"}>{n}</span>
         </b>
         Trang {source.page}
+        {source.chunk != null && <span className="opacity-70">· đoạn {source.chunk + 1}</span>}
       </button>
     </Badge>
   );

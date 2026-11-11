@@ -142,7 +142,7 @@ func TestAskAnswersFromMostRelevantChunk(t *testing.T) {
 		}
 	}
 	top := w.sources[0]
-	if top.Page != 2 || top.ChunkID != 101 || top.CharStart != 10 || top.CharEnd != 10+len([]rune(handbook[2])) || top.Content != handbook[2] {
+	if top.Page != 2 || top.ChunkID != 101 || top.ChunkIndex != 1 || top.CharStart != 10 || top.CharEnd != 10+len([]rune(handbook[2])) || top.Content != handbook[2] {
 		t.Errorf("top source = %+v, want the leave-policy chunk on page 2 with its offsets", top)
 	}
 
@@ -299,5 +299,51 @@ func TestBuildPrompt(t *testing.T) {
 	}
 	if !strings.Contains(buildPrompt("q", nil), "(không có đoạn nào)") {
 		t.Error("empty-sources prompt should say there are no excerpts")
+	}
+}
+
+// quotaErr giả lỗi hết lượt của provider (llm.APIError 429 có QuotaExhausted).
+type quotaErr struct{}
+
+func (quotaErr) Error() string        { return "gemini: HTTP 429: You exceeded your current quota" }
+func (quotaErr) QuotaExhausted() bool { return true }
+
+type quotaLLM struct {
+	llm.MockProvider
+	onEmbed bool
+}
+
+func (q *quotaLLM) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+	if q.onEmbed {
+		return nil, fmt.Errorf("gemini embed: %w", quotaErr{})
+	}
+	return q.MockProvider.Embed(ctx, texts)
+}
+
+func (q *quotaLLM) Stream(context.Context, string, chan<- string) error {
+	return fmt.Errorf("gemini stream: %w", quotaErr{})
+}
+
+func TestAskQuotaExhausted(t *testing.T) {
+	tests := []struct {
+		name    string
+		onEmbed bool
+	}{
+		{"khi embed câu hỏi", true},
+		{"khi sinh câu trả lời", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := newFakeAskRepo(t, repository.StatusReady, handbook)
+			err := NewAskService(repo, &quotaLLM{onEmbed: tt.onEmbed}).Ask(context.Background(), askDocID, "Hỏi?", &recordingWriter{})
+			if !errors.Is(err, ErrAIQuota) {
+				t.Errorf("err = %v, want ErrAIQuota", err)
+			}
+		})
+	}
+	// Lỗi khác vẫn giữ nguyên, không bị gắn nhầm là hết lượt.
+	repo := newFakeAskRepo(t, repository.StatusReady, handbook)
+	if err := NewAskService(repo, &failingEmbedder{}).Ask(context.Background(), askDocID, "Hỏi?", &recordingWriter{}); errors.Is(err, ErrAIQuota) {
+		t.Errorf("plain embed error marked as quota: %v", err)
 	}
 }

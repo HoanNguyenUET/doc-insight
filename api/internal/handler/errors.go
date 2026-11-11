@@ -33,7 +33,7 @@ func errorStatus(err error) int {
 		return http.StatusConflict
 	case errors.Is(err, service.ErrFileTooLarge), errors.As(err, &tooBig):
 		return http.StatusRequestEntityTooLarge
-	case errors.Is(err, service.ErrBusy):
+	case errors.Is(err, service.ErrBusy), errors.Is(err, service.ErrAIQuota):
 		return http.StatusServiceUnavailable
 	default:
 		return http.StatusInternalServerError
@@ -55,6 +55,9 @@ func publicError(r *http.Request, err error) (int, string) {
 	switch {
 	case status == http.StatusRequestEntityTooLarge:
 		msg = service.ErrFileTooLarge.Error()
+	case errors.Is(err, service.ErrAIQuota):
+		// Không lộ chi tiết lỗi của Google, chỉ câu dễ hiểu.
+		msg = service.ErrAIQuota.Error()
 	case status >= 500 && status != http.StatusServiceUnavailable:
 		slog.ErrorContext(r.Context(), "request failed", "err", err, "method", r.Method, "path", r.URL.Path,
 			"request_id", middleware.GetReqID(r.Context()))

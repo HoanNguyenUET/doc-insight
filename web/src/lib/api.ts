@@ -40,6 +40,8 @@ export type PageData = {
 // Một đoạn nguồn trong event `sources`; câu trả lời trích dẫn nó bằng [[ref]].
 export type Source = {
   ref: number;
+  // Thứ tự đoạn trong tài liệu (từ 0); tin nhắn cũ lưu trước khi có trường này thì thiếu.
+  chunk?: number;
   page: number;
   char_start: number;
   char_end: number;

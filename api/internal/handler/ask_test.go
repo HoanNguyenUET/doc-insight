@@ -95,7 +95,7 @@ func streamAnswer(sources []service.Source, tokens ...string) func(context.Conte
 func TestAskStreamsSSE(t *testing.T) {
 	long := strings.Repeat("Nghỉ phép  12 ngày.\n", 20)
 	svc := &fakeAskService{run: streamAnswer([]service.Source{
-		{N: 1, ChunkID: 9, Page: 7, CharStart: 120, CharEnd: 480, Content: long, Score: 0.87321},
+		{N: 1, ChunkID: 9, ChunkIndex: 4, Page: 7, CharStart: 120, CharEnd: 480, Content: long, Score: 0.87321},
 		{N: 2, Page: 3, Content: "Ngắn.", Score: 0.5},
 	}, "Theo ", "tài liệu", " [[1]]")}
 
@@ -125,7 +125,8 @@ func TestAskStreamsSSE(t *testing.T) {
 
 	chunks := events[0].data["chunks"].([]any)
 	first := chunks[0].(map[string]any)
-	want := map[string]any{"ref": 1.0, "page": 7.0, "char_start": 120.0, "char_end": 480.0, "score": 0.87}
+	// chunk là số thứ tự đoạn (từ 0), để giao diện ghi "Trang 7 · đoạn 5".
+	want := map[string]any{"ref": 1.0, "chunk": 4.0, "page": 7.0, "char_start": 120.0, "char_end": 480.0, "score": 0.87}
 	for k, v := range want {
 		if first[k] != v {
 			t.Errorf("chunks[0].%s = %v, want %v", k, first[k], v)
@@ -173,7 +174,6 @@ func TestAskErrorBeforeStreamIsJSON(t *testing.T) {
 		{"invalid question", fmt.Errorf("%w: câu hỏi trống", service.ErrInvalidQuestion), http.StatusBadRequest, "câu hỏi không hợp lệ: câu hỏi trống"},
 		{"not found", service.ErrDocNotFound, http.StatusNotFound, service.ErrDocNotFound.Error()},
 		{"not ready", fmt.Errorf("%w (trạng thái embedding)", service.ErrDocNotReady), http.StatusConflict, "tài liệu chưa xử lý xong (trạng thái embedding)"},
-		{"embed failed", errors.New("embed câu hỏi: hết quota"), http.StatusInternalServerError, "lỗi máy chủ nội bộ"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -187,6 +187,35 @@ func TestAskErrorBeforeStreamIsJSON(t *testing.T) {
 			}
 			if body["error"] != tt.msg || body["request_id"] == "" {
 				t.Errorf("body = %v, want error %q with request_id", body, tt.msg)
+			}
+		})
+	}
+}
+
+// EventSource không đọc được body của response khác 200, nên lỗi phía máy
+// chủ (5xx) dù xảy ra trước event đầu tiên cũng gửi thành event error.
+func TestAskServerErrorBeforeStreamIsEvent(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		msg  string
+	}{
+		{"lỗi nội bộ", errors.New("embed câu hỏi: secret-detail"), "lỗi máy chủ nội bộ"},
+		{"hết lượt AI", fmt.Errorf("%w: gemini 429 secret-detail", service.ErrAIQuota), service.ErrAIQuota.Error()},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &fakeAskService{run: func(context.Context, service.AnswerWriter) error { return tt.err }}
+			rec, _ := do(askRouter(svc), httptest.NewRequest(http.MethodGet, askURL("q"), nil))
+			if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "text/event-stream" {
+				t.Fatalf("status %d, Content-Type %q; want 200 SSE", rec.Code, rec.Header().Get("Content-Type"))
+			}
+			events := parseSSE(t, rec.Body.String())
+			if got := eventNames(events); got != "error" {
+				t.Fatalf("events = %s, want only error", got)
+			}
+			if e := events[0].data; e["message"] != tt.msg || e["request_id"] == "" {
+				t.Errorf("error event = %v, want message %q with request_id", e, tt.msg)
 			}
 		})
 	}
