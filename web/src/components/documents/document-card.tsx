@@ -1,7 +1,8 @@
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { StatusTag } from "@/components/documents/status-tag";
+import { useOpenDocument } from "@/components/documents/use-open-document";
 import { IndexIcon, TrashIcon } from "@/components/icons";
 import {
   AlertDialog,
@@ -21,19 +22,14 @@ import { displayName, formatBytes, formatDate, statusTone } from "@/lib/format";
 import { useDeleteDocument } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
-// Cả thẻ bấm được: tài liệu sẵn sàng thì mở màn hỏi đáp, đang xử lý hoặc
-// lỗi thì chỉ báo toast.
+// Cả thẻ bấm được, mở tài liệu qua useOpenDocument.
 export function DocumentCard({ doc }: { doc: Document }) {
-  const navigate = useNavigate();
+  const openDocument = useOpenDocument();
   const tone = statusTone(doc.status);
   const ready = tone === "ready";
   const convCount = useAskStore((s) => s.conversations.filter((c) => c.docId === doc.id).length);
 
-  const open = () => {
-    if (tone === "proc") toast("Tài liệu đang được xử lý", { description: `Đã xong ${doc.progress}%` });
-    else if (tone === "err") toast("Không đọc được tài liệu này", { description: doc.error ?? undefined });
-    else navigate(`/documents/${doc.id}`);
-  };
+  const open = () => openDocument(doc);
 
   const meta = [
     formatBytes(doc.size_bytes),
@@ -83,7 +79,7 @@ export function DocumentCard({ doc }: { doc: Document }) {
         <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
           {ready ? (
             <Button asChild variant="ghost" size="icon" className="size-[26px] text-ink-3 hover:bg-field">
-              <Link to={`/documents/${doc.id}/chunks`} aria-label="Chỉ mục" title="Chỉ mục">
+              <Link to={`/documents/${doc.id}/chunks`} aria-label="Xem nội dung" title="Xem nội dung tài liệu">
                 <IndexIcon className="size-4 stroke-[1.7]" />
               </Link>
             </Button>

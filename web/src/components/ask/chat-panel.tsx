@@ -3,8 +3,9 @@ import { useShallow } from "zustand/react/shallow";
 
 import { AnswerText } from "@/components/ask/answer-text";
 import { Composer } from "@/components/ask/composer";
+import { SparkIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
-import { useAnswerStream } from "@/hooks/use-answer-stream";
+import { useAnswerStream, type StreamStatus } from "@/hooks/use-answer-stream";
 import type { Document } from "@/lib/api";
 import { activeConversationFor, newId, useAskStore, type Message } from "@/lib/ask-store";
 import { displayName } from "@/lib/format";
@@ -115,11 +116,14 @@ export function ChatPanel({ doc }: { doc: Document }) {
         ) : (
           <>
             {messages.map((m) => (m.role === "user" ? <UserBubble key={m.id} message={m} /> : <AssistantMessage key={m.id} message={m} />))}
-            {live && (
-              <div className="max-w-[93%] self-start text-[14.5px] leading-[1.68]">
-                <AnswerText messageId={live.messageId} text={stream.text} sources={stream.sources} streaming />
-              </div>
-            )}
+            {live &&
+              (stream.text === "" && (stream.status === "connecting" || stream.status === "streaming") ? (
+                <Thinking key={live.messageId} status={stream.status} found={stream.sources.length} />
+              ) : (
+                <div className="max-w-[93%] self-start text-[14.5px] leading-[1.68]">
+                  <AnswerText messageId={live.messageId} text={stream.text} sources={stream.sources} streaming />
+                </div>
+              ))}
           </>
         )}
       </div>
@@ -147,6 +151,40 @@ function AssistantMessage({ message }: { message: Extract<Message, { role: "assi
     <div className="max-w-[93%] self-start text-[14.5px] leading-[1.68]">
       <AnswerText messageId={message.id} text={message.text} sources={message.sources} />
       {message.error && <p className="mt-2 text-[13px] text-bad">{message.error}</p>}
+    </div>
+  );
+}
+
+// Thinking hiện trong lúc AI chưa viết chữ nào: đang tìm đoạn liên quan,
+// rồi đang soạn câu trả lời (model "suy nghĩ" vài giây trước token đầu).
+function Thinking({ status, found }: { status: StreamStatus; found: number }) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const label =
+    status === "connecting"
+      ? "Đang tìm các đoạn liên quan trong tài liệu"
+      : `Đã tìm thấy ${found} đoạn liên quan, đang soạn câu trả lời`;
+  return (
+    <div
+      role="status"
+      className="flex max-w-[93%] items-center gap-3 self-start rounded-[12px] border border-rule-soft bg-field px-3.5 py-3 text-[13.5px] text-ink-2"
+    >
+      <span className="grid size-7 flex-none place-items-center rounded-full bg-blueprint-soft text-blueprint">
+        <SparkIcon className="size-4 animate-pulse" />
+      </span>
+      <span>
+        {label}
+        <span className="ml-1 inline-flex gap-[3px] align-middle" aria-hidden>
+          {[0, 200, 400].map((d) => (
+            <span key={d} className="size-[5px] animate-blip rounded-full bg-blueprint" style={{ animationDelay: `${d}ms` }} />
+          ))}
+        </span>
+        {seconds >= 6 && <span className="mt-0.5 block text-xs text-ink-3">{seconds} giây · câu hỏi khó có thể mất lâu hơn</span>}
+      </span>
     </div>
   );
 }

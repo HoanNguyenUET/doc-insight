@@ -1,51 +1,67 @@
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useState } from "react";
 
+import { SearchIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import type { Chunk } from "@/lib/api";
 import { useAskStore } from "@/lib/ask-store";
-import { formatBytes, processingSeconds } from "@/lib/format";
+import { displayName, formatBytes, processingSeconds } from "@/lib/format";
 import { useChunks, useDocument } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
-// Màn chỉ mục: các đoạn đã cắt của một tài liệu.
+// Bỏ dấu và chữ hoa để tìm "phan boi chau" ra "Phan Bội Châu".
+const fold = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase();
+
+// Màn "Nội dung tài liệu": giải thích bằng lời thường AI đã đọc tài liệu thế
+// nào, rồi liệt kê các đoạn theo trang. Số liệu kỹ thuật (ký tự, token) chỉ
+// hiện khi bật.
 export function ChunkIndex({ id }: { id: string }) {
   const { data: doc, error: docError } = useDocument(id);
   const ready = doc?.status === "ready";
   const { data: chunks, error: chunksError, isPending } = useChunks(id, ready);
-  const [open, setOpen] = useState<Set<number>>(new Set());
+  const [query, setQuery] = useState("");
+  const [technical, setTechnical] = useState(false);
 
-  const toggle = (chunkId: number) =>
-    setOpen((s) => {
-      const next = new Set(s);
-      if (!next.delete(chunkId)) next.add(chunkId);
-      return next;
-    });
+  const pages = useMemo(() => {
+    const q = fold(query.trim());
+    const byPage = new Map<number, Chunk[]>();
+    for (const c of chunks ?? []) {
+      if (q && !fold(c.content).includes(q)) continue;
+      byPage.set(c.page_number, [...(byPage.get(c.page_number) ?? []), c]);
+    }
+    return [...byPage.entries()].sort(([a], [b]) => a - b);
+  }, [chunks, query]);
 
   const seconds = doc ? processingSeconds(doc) : null;
-  const facts = [
-    { label: "Số trang", value: doc?.page_count ?? "—", mono: true },
-    { label: "Số đoạn", value: doc?.chunk_count ?? "—", mono: true },
-    { label: "Thời gian xử lý", value: seconds == null ? "—" : `${seconds < 10 ? seconds.toFixed(1) : Math.round(seconds)} giây`, mono: true },
-    { label: "Dung lượng", value: doc ? formatBytes(doc.size_bytes) : "—", mono: true },
-  ];
-
   const error = docError ?? chunksError;
 
   return (
     <>
-      <div className="mb-[26px] flex flex-wrap items-end justify-between gap-6">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-6">
         <div>
-          <h1 className="text-[25px] leading-tight font-semibold tracking-[-0.02em]">Chỉ mục tài liệu</h1>
-          <p className="mt-[3px] max-w-[58ch] text-[14.5px] text-ink-2">
-            {doc ? `${doc.filename} — các đoạn đã cắt, kèm vị trí trong trang.` : "Đang tải…"}
+          <h1 className="text-[25px] leading-tight font-semibold tracking-[-0.02em]">Nội dung tài liệu</h1>
+          <p className="mt-[3px] max-w-[60ch] text-[14.5px] text-ink-2">
+            {doc ? (
+              <>
+                Những gì AI đã đọc được từ <b className="font-medium text-ink">{displayName(doc.filename)}</b>, chia theo
+                từng trang.
+              </>
+            ) : (
+              "Đang tải…"
+            )}
           </p>
         </div>
         <div className="flex gap-[9px]">
           {ready && (
             <Button asChild>
-              <Link to={`/documents/${id}`}>Hỏi đáp</Link>
+              <Link to={`/documents/${id}`}>Đặt câu hỏi</Link>
             </Button>
           )}
           <Button asChild variant="outline" className="bg-paper">
@@ -54,53 +70,109 @@ export function ChunkIndex({ id }: { id: string }) {
         </div>
       </div>
 
-      <dl className="mb-[26px] grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-px overflow-hidden rounded-[10px] border border-rule bg-rule">
-        {facts.map((f) => (
-          <div key={f.label} className="bg-paper px-[18px] py-[15px]">
-            <dt className="mb-[3px] text-[13px] text-ink-3">{f.label}</dt>
-            <dd className={cn("text-[15.5px] font-medium", f.mono && "font-mono text-sm")}>{f.value}</dd>
-          </div>
-        ))}
-      </dl>
+      {doc && ready && (
+        <section className="mb-6 rounded-[12px] border border-rule bg-paper px-5 py-[18px]">
+          <h2 className="mb-3.5 text-[15px] font-semibold">AI dùng tài liệu này thế nào?</h2>
+          <ol className="grid gap-3 xl:grid-cols-3">
+            <Step n={1} title={`Đọc ${doc.page_count ?? 0} trang`}>
+              Lấy toàn bộ chữ trong file PDF ({formatBytes(doc.size_bytes)})
+              {seconds != null && `, mất ${seconds < 10 ? seconds.toFixed(1).replace(".", ",") : Math.round(seconds)} giây`}.
+            </Step>
+            <Step n={2} title={`Chia thành ${doc.chunk_count} đoạn`}>
+              Mỗi đoạn dài khoảng nửa trang, để tìm nhanh phần liên quan tới câu hỏi.
+            </Step>
+            <Step n={3} title="Trả lời kèm nguồn">
+              Khi bạn hỏi, AI đọc vài đoạn khớp nhất rồi trả lời và ghi rõ đoạn đó nằm ở trang nào.
+            </Step>
+          </ol>
+        </section>
+      )}
 
-      <section className="overflow-hidden rounded-[10px] border border-rule bg-paper">
-        <div className="flex items-center justify-between border-b border-rule-soft px-[18px] py-3.5">
-          <h3 className="text-[15px] font-semibold">Các đoạn đã cắt</h3>
-          <span className="text-[13px] text-ink-3">Bấm một dòng để xem đầy đủ</span>
-        </div>
-        {error ? (
-          <p className="px-[18px] py-10 text-center text-sm text-bad">{error.message}</p>
-        ) : doc && !ready ? (
-          <p className="px-[18px] py-10 text-center text-sm text-ink-3">Tài liệu chưa xử lý xong, chưa có đoạn nào.</p>
-        ) : isPending || !chunks ? (
-          <p className="px-[18px] py-10 text-center text-sm text-ink-3">Đang tải…</p>
-        ) : (
-          <Table className="text-sm">
-            <TableHeader>
-              <TableRow className="border-rule hover:bg-transparent">
-                <TableHead className="w-[92px] px-[18px] text-[13px] font-medium text-ink-3">Mã</TableHead>
-                <TableHead className="w-[66px] px-[18px] text-[13px] font-medium text-ink-3">Trang</TableHead>
-                <TableHead className="px-[18px] text-[13px] font-medium text-ink-3">Nội dung</TableHead>
-                <TableHead className="w-[78px] px-[18px] text-[13px] font-medium text-ink-3">Ký tự</TableHead>
-                <TableHead className="w-[80px] px-[18px] text-[13px] font-medium text-ink-3">Token</TableHead>
-                <TableHead className="w-[64px] px-[18px]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {chunks.map((c) => (
-                <ChunkRow key={c.id} docId={id} chunk={c} open={open.has(c.id)} onToggle={() => toggle(c.id)} />
+      {error ? (
+        <Panel tone="bad">{error.message}</Panel>
+      ) : doc && !ready ? (
+        <Panel>Tài liệu chưa xử lý xong, chưa có nội dung để xem.</Panel>
+      ) : isPending || !chunks ? (
+        <Panel>Đang tải…</Panel>
+      ) : (
+        <>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[240px] flex-1">
+              <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Tìm chữ trong tài liệu, ví dụ: hồ sơ, thời hạn…"
+                className="h-10 bg-paper pl-9"
+              />
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-[13px] text-ink-3 select-none">
+              <input
+                type="checkbox"
+                checked={technical}
+                onChange={(e) => setTechnical(e.target.checked)}
+                className="accent-blueprint"
+              />
+              Hiện thông tin kỹ thuật
+            </label>
+          </div>
+
+          {pages.length === 0 ? (
+            <Panel>Không có đoạn nào chứa “{query}”.</Panel>
+          ) : (
+            <div className="flex flex-col gap-6">
+              {pages.map(([page, list]) => (
+                <section key={page}>
+                  <h3 className="mb-2.5 flex items-baseline gap-2 text-[14px] font-semibold">
+                    Trang {page}
+                    <span className="text-[13px] font-normal text-ink-3">{list.length} đoạn</span>
+                  </h3>
+                  <div className="flex flex-col gap-2.5">
+                    {list.map((c) => (
+                      <ChunkCard key={c.id} docId={id} chunk={c} technical={technical} />
+                    ))}
+                  </div>
+                </section>
               ))}
-            </TableBody>
-          </Table>
-        )}
-      </section>
+            </div>
+          )}
+        </>
+      )}
     </>
   );
 }
 
-function ChunkRow({ docId, chunk: c, open, onToggle }: { docId: string; chunk: Chunk; open: boolean; onToggle: () => void }) {
+function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-3">
+      <span className="grid size-7 flex-none place-items-center rounded-full bg-blueprint-soft font-mono text-[13px] font-medium text-blueprint">
+        {n}
+      </span>
+      <div>
+        <div className="text-[14px] font-medium">{title}</div>
+        <p className="mt-0.5 text-[13px] leading-relaxed text-ink-2">{children}</p>
+      </div>
+    </li>
+  );
+}
+
+function Panel({ children, tone }: { children: React.ReactNode; tone?: "bad" }) {
+  return (
+    <p
+      className={cn(
+        "rounded-[12px] border border-rule bg-paper px-5 py-10 text-center text-sm",
+        tone === "bad" ? "text-bad" : "text-ink-3",
+      )}
+    >
+      {children}
+    </p>
+  );
+}
+
+function ChunkCard({ docId, chunk: c, technical }: { docId: string; chunk: Chunk; technical: boolean }) {
   const navigate = useNavigate();
   const jumpTo = useAskStore((s) => s.jumpTo);
+  const [open, setOpen] = useState(false);
 
   // Mở màn hỏi đáp ở đúng trang và tô sáng đoạn này.
   const view = () => {
@@ -109,29 +181,24 @@ function ChunkRow({ docId, chunk: c, open, onToggle }: { docId: string; chunk: C
   };
 
   return (
-    <TableRow onClick={onToggle} className="cursor-pointer border-rule-soft align-top hover:bg-white">
-      <TableCell className="px-[18px] py-[13px] font-mono text-[12.5px] whitespace-nowrap text-ink-2">
-        CHK-{String(c.index + 1).padStart(3, "0")}
-      </TableCell>
-      <TableCell className="px-[18px] py-[13px] font-mono text-[12.5px] text-ink-2">{c.page_number}</TableCell>
-      <TableCell className={cn("px-[18px] py-[13px] leading-normal whitespace-normal", open ? "text-ink" : "text-ink-2")}>
-        <span className={cn(open ? "whitespace-pre-wrap" : "line-clamp-2")}>{c.content}</span>
-      </TableCell>
-      <TableCell className="px-[18px] py-[13px] font-mono text-[12.5px] text-ink-2">{c.char_end - c.char_start}</TableCell>
-      <TableCell className="px-[18px] py-[13px] font-mono text-[12.5px] text-ink-2">{c.token_count ?? "—"}</TableCell>
-      <TableCell className="px-[18px] py-[9px]">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-[13px] text-blueprint hover:bg-field"
-          onClick={(e) => {
-            e.stopPropagation();
-            view();
-          }}
-        >
-          Xem
-        </Button>
-      </TableCell>
-    </TableRow>
+    <article className="rounded-[10px] border border-rule bg-paper px-4 py-3.5 transition-colors hover:border-ink-3/40">
+      <div className="mb-1.5 flex items-center justify-between gap-3">
+        <span className="text-[13px] font-medium text-ink-3">Đoạn {c.index + 1}</span>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-[13px] text-ink-2 hover:bg-field" onClick={() => setOpen((o) => !o)}>
+            {open ? "Thu gọn" : "Đọc hết"}
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-[13px] text-blueprint hover:bg-field" onClick={view}>
+            Xem trên trang →
+          </Button>
+        </div>
+      </div>
+      <p className={cn("text-[14px] leading-relaxed text-ink", open ? "whitespace-pre-wrap" : "line-clamp-3")}>{c.content}</p>
+      {technical && (
+        <p className="mt-2 font-mono text-[11.5px] text-ink-3">
+          mã {c.id} · ký tự {c.char_start}–{c.char_end} ({c.char_end - c.char_start}) · {c.token_count ?? "?"} token
+        </p>
+      )}
+    </article>
   );
 }
