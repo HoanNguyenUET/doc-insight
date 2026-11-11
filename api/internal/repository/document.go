@@ -33,6 +33,9 @@ type Document struct {
 	Status     string  `json:"status"`
 	Progress   int     `json:"progress"`
 	Error      *string `json:"error"`
+	// EmbedModel là mô hình embedding đã dùng; nil = chưa rõ (xử lý trước
+	// migration 000004).
+	EmbedModel *string `json:"embed_model"`
 	// ProcessingStartedAt là lúc worker bắt đầu lần xử lý gần nhất.
 	ProcessingStartedAt *time.Time `json:"processing_started_at"`
 	CreatedAt           time.Time  `json:"created_at"`
@@ -51,12 +54,12 @@ type NewChunk struct {
 	Embedding  []float32
 }
 
-const documentColumns = `id, filename, size_bytes, page_count, chunk_count, status, progress, error, processing_started_at, created_at, updated_at, processed_at`
+const documentColumns = `id, filename, size_bytes, page_count, chunk_count, status, progress, error, embed_model, processing_started_at, created_at, updated_at, processed_at`
 
 func scanDocument(row pgx.Row) (Document, error) {
 	var d Document
 	err := row.Scan(&d.ID, &d.Filename, &d.SizeBytes, &d.PageCount, &d.ChunkCount, &d.Status,
-		&d.Progress, &d.Error, &d.ProcessingStartedAt, &d.CreatedAt, &d.UpdatedAt, &d.ProcessedAt)
+		&d.Progress, &d.Error, &d.EmbedModel, &d.ProcessingStartedAt, &d.CreatedAt, &d.UpdatedAt, &d.ProcessedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Document{}, ErrNotFound
 	}
@@ -153,6 +156,25 @@ func (db *DB) FailDocument(ctx context.Context, id, message string) error {
 	return nil
 }
 
+// ResetDocument đưa tài liệu về pending để xử lý lại từ file gốc. Trang và
+// chunk cũ giữ nguyên tới khi lần chạy mới hoàn tất (CompleteDocument thay
+// toàn bộ trong một transaction).
+func (db *DB) ResetDocument(ctx context.Context, id string) error {
+	if !uuidRe.MatchString(id) {
+		return fmt.Errorf("reset document %s: %w", id, ErrNotFound)
+	}
+	tag, err := db.Pool.Exec(ctx, `
+		UPDATE documents SET status = 'pending', progress = 0, error = NULL, updated_at = now()
+		WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("reset document %s: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("reset document %s: %w", id, ErrNotFound)
+	}
+	return nil
+}
+
 // FailUnfinishedDocuments đánh dấu failed mọi tài liệu chưa tới ready/failed
 // và trả số tài liệu bị đổi. Hàng đợi xử lý nằm trong bộ nhớ, nên sau khi
 // tiến trình chết đột ngột (kill, OOM) không còn worker nào giữ các tài liệu
@@ -171,7 +193,8 @@ func (db *DB) FailUnfinishedDocuments(ctx context.Context, message string) (int6
 // ready trong MỘT transaction: không bao giờ có trạng thái ready mà thiếu
 // chunk, hay chunk dở dang của một lần chạy lỗi. Chạy lại cho cùng tài liệu
 // là an toàn. pages[i] là văn bản của trang i+1; số trang là len(pages).
-func (db *DB) CompleteDocument(ctx context.Context, id string, pages []string, chunks []NewChunk) error {
+// embedModel là mô hình đã tạo embedding cho chunks ("" = không có).
+func (db *DB) CompleteDocument(ctx context.Context, id, embedModel string, pages []string, chunks []NewChunk) error {
 	n := len(chunks)
 	idx, page, start, end, tokens := make([]int32, n), make([]int32, n), make([]int32, n), make([]int32, n), make([]int32, n)
 	contents := make([]string, n)
@@ -218,8 +241,8 @@ func (db *DB) CompleteDocument(ctx context.Context, id string, pages []string, c
 		}
 		if _, err := tx.Exec(ctx, `
 			UPDATE documents SET status = 'ready', progress = 100, page_count = $2, chunk_count = $3,
-				error = NULL, processed_at = now(), updated_at = now()
-			WHERE id = $1`, id, len(pages), n); err != nil {
+				embed_model = NULLIF($4, ''), error = NULL, processed_at = now(), updated_at = now()
+			WHERE id = $1`, id, len(pages), n, embedModel); err != nil {
 			return fmt.Errorf("mark ready: %w", err)
 		}
 		return nil

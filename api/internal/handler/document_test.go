@@ -32,37 +32,50 @@ type fakeDocService struct {
 	gotPage    int
 }
 
-func (f *fakeDocService) Upload(_ context.Context, filename string, r io.Reader) (repository.Document, error) {
+func (f *fakeDocService) Upload(_ context.Context, filename string, r io.Reader) (service.DocumentView, error) {
 	f.gotName = filename
 	b, err := io.ReadAll(r)
 	f.gotBody = b
 	if err != nil {
-		return repository.Document{}, fmt.Errorf("ghi file: %w", err)
+		return service.DocumentView{}, fmt.Errorf("ghi file: %w", err)
 	}
 	if f.uploadErr != nil {
-		return repository.Document{}, f.uploadErr
+		return service.DocumentView{}, f.uploadErr
 	}
-	return repository.Document{ID: "11111111-1111-1111-1111-111111111111", Status: repository.StatusPending}, nil
+	return service.DocumentView{Document: repository.Document{ID: "11111111-1111-1111-1111-111111111111", Status: repository.StatusPending}}, nil
 }
 
-func (f *fakeDocService) List(_ context.Context, limit int) ([]repository.Document, error) {
+func (f *fakeDocService) List(_ context.Context, limit int) ([]service.DocumentView, error) {
 	f.gotLimit = limit
 	if f.internalEr != nil {
 		return nil, f.internalEr
 	}
-	var out []repository.Document
+	var out []service.DocumentView
 	for _, d := range f.docs {
-		out = append(out, d)
+		out = append(out, service.DocumentView{Document: d})
 	}
 	return out, nil
 }
 
-func (f *fakeDocService) Get(_ context.Context, id string) (repository.Document, error) {
+func (f *fakeDocService) Get(_ context.Context, id string) (service.DocumentView, error) {
 	d, ok := f.docs[id]
 	if !ok {
-		return repository.Document{}, service.ErrDocNotFound
+		return service.DocumentView{}, service.ErrDocNotFound
 	}
-	return d, nil
+	return service.DocumentView{Document: d, NeedsReprocess: d.EmbedModel == nil}, nil
+}
+
+func (f *fakeDocService) Reprocess(_ context.Context, id string) (service.DocumentView, error) {
+	d, ok := f.docs[id]
+	switch {
+	case !ok:
+		return service.DocumentView{}, service.ErrDocNotFound
+	case d.Status != repository.StatusReady && d.Status != repository.StatusFailed:
+		return service.DocumentView{}, service.ErrDocProcessing
+	}
+	d.Status = repository.StatusPending
+	f.docs[id] = d
+	return service.DocumentView{Document: d}, nil
 }
 
 func (f *fakeDocService) Delete(_ context.Context, id string) error {
@@ -463,5 +476,38 @@ func TestFile(t *testing.T) {
 		if rec.Code != 404 || got["error"] != tt.want {
 			t.Errorf("GET %s = %d %s, want 404 %q", tt.id, rec.Code, rec.Body, tt.want)
 		}
+	}
+}
+
+func TestReprocessAndNeedsReprocess(t *testing.T) {
+	ready, busy := "66666666-6666-6666-6666-666666666666", "77777777-7777-7777-7777-777777777777"
+	svc := &fakeDocService{docs: map[string]repository.Document{
+		ready: {ID: ready, Status: repository.StatusReady},
+		busy:  {ID: busy, Status: repository.StatusEmbedding},
+	}}
+	h := docRouter(svc)
+
+	// Tài liệu không rõ mô hình embedding: client thấy needs_reprocess.
+	if _, got := do(h, httptest.NewRequest(http.MethodGet, "/api/documents/"+ready, nil)); got["needs_reprocess"] != true || got["embed_model"] != nil {
+		t.Errorf("GET = %v, want needs_reprocess true and embed_model null", got)
+	}
+
+	tests := []struct {
+		name   string
+		id     string
+		status int
+		want   string // status của tài liệu, hoặc câu lỗi
+	}{
+		{"xử lý lại", ready, http.StatusAccepted, "pending"},
+		{"đang xử lý", busy, http.StatusConflict, service.ErrDocProcessing.Error()},
+		{"không có", "88888888-8888-8888-8888-888888888888", http.StatusNotFound, service.ErrDocNotFound.Error()},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec, got := do(h, httptest.NewRequest(http.MethodPost, "/api/documents/"+tt.id+"/reprocess", nil))
+			if rec.Code != tt.status || (got["status"] != tt.want && got["error"] != tt.want) {
+				t.Errorf("POST reprocess = %d %s, want %d %q", rec.Code, rec.Body, tt.status, tt.want)
+			}
+		})
 	}
 }

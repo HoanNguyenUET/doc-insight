@@ -84,7 +84,7 @@ func run(ctx context.Context) error {
 
 	router := handler.NewRouter(handler.Deps{
 		Health:         handler.NewHealthHandler(service.NewHealthService(db)),
-		Documents:      handler.NewDocumentHandler(service.NewDocumentService(db, pool, cfg.StorageDir)),
+		Documents:      handler.NewDocumentHandler(service.NewDocumentService(db, pool, cfg.StorageDir, provider.EmbedModel())),
 		Ask:            handler.NewAskHandler(service.NewAskService(db, provider)),
 		AllowedOrigins: cfg.AllowedOrigins,
 	})

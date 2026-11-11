@@ -18,7 +18,7 @@ func TestPagesAndChunks(t *testing.T) {
 
 	d, _ := db.CreateDocument(ctx, "a.pdf", 1)
 	pages := []string{"Trang một.", "", "Trang ba có hai đoạn."}
-	if err := db.CompleteDocument(ctx, d.ID, pages, []NewChunk{
+	if err := db.CompleteDocument(ctx, d.ID, "", pages, []NewChunk{
 		{Index: 0, Content: "Trang một.", PageNumber: 1, CharStart: 0, CharEnd: 10, TokenCount: 3},
 		{Index: 1, Content: "Trang ba", PageNumber: 3, CharStart: 0, CharEnd: 8, TokenCount: 2},
 		{Index: 2, Content: "có hai đoạn.", PageNumber: 3, CharStart: 9, CharEnd: 21, TokenCount: 4},
@@ -78,7 +78,7 @@ func TestPagesAndChunks(t *testing.T) {
 	}
 
 	// Chạy lại thay toàn bộ trang; xoá tài liệu xoá theo trang.
-	if err := db.CompleteDocument(ctx, d.ID, []string{"Mới."}, nil); err != nil {
+	if err := db.CompleteDocument(ctx, d.ID, "", []string{"Mới."}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.GetPage(ctx, d.ID, 3); !errors.Is(err, ErrNotFound) {

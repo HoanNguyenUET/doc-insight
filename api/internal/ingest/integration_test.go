@@ -36,7 +36,7 @@ func setup(t *testing.T) (*service.DocumentService, *repository.DB) {
 	pool.Start(poolCtx)
 	t.Cleanup(func() { cancel(); pool.Wait() })
 
-	return service.NewDocumentService(db, pool, t.TempDir()), db
+	return service.NewDocumentService(db, pool, t.TempDir(), ingest.NoopEmbedder{}.EmbedModel()), db
 }
 
 func waitFinal(t *testing.T, db *repository.DB, id string) repository.Document {

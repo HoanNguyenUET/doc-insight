@@ -16,9 +16,10 @@ import (
 )
 
 type DocumentService interface {
-	Upload(ctx context.Context, filename string, r io.Reader) (repository.Document, error)
-	List(ctx context.Context, limit int) ([]repository.Document, error)
-	Get(ctx context.Context, id string) (repository.Document, error)
+	Upload(ctx context.Context, filename string, r io.Reader) (service.DocumentView, error)
+	List(ctx context.Context, limit int) ([]service.DocumentView, error)
+	Get(ctx context.Context, id string) (service.DocumentView, error)
+	Reprocess(ctx context.Context, id string) (service.DocumentView, error)
 	Delete(ctx context.Context, id string) error
 	Page(ctx context.Context, id string, number int) (service.PageView, error)
 	Chunks(ctx context.Context, id string, page int) ([]repository.Chunk, error)
@@ -94,7 +95,7 @@ func (h *DocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if docs == nil {
-		docs = []repository.Document{} // JSON [] thay vì null
+		docs = []service.DocumentView{} // JSON [] thay vì null
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"documents": docs})
 }
@@ -131,6 +132,16 @@ func (h *DocumentHandler) File(w http.ResponseWriter, r *http.Request) {
 	// File của một id không bao giờ đổi.
 	w.Header().Set("Cache-Control", "private, max-age=86400, immutable")
 	http.ServeContent(w, r, "", doc.CreatedAt, f)
+}
+
+// Reprocess xử lý lại tài liệu từ file PDF gốc (đổi mô hình hoặc lần trước lỗi).
+func (h *DocumentHandler) Reprocess(w http.ResponseWriter, r *http.Request) {
+	doc, err := h.svc.Reprocess(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, doc)
 }
 
 func (h *DocumentHandler) Page(w http.ResponseWriter, r *http.Request) {

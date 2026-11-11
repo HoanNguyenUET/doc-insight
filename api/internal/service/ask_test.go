@@ -28,7 +28,9 @@ type fakeAskRepo struct {
 
 func newFakeAskRepo(t *testing.T, status string, pages map[int]string) *fakeAskRepo {
 	t.Helper()
-	r := &fakeAskRepo{doc: repository.Document{ID: askDocID, Status: status}}
+	// Tài liệu được xử lý bằng chính mô hình của MockProvider.
+	model := "mock"
+	r := &fakeAskRepo{doc: repository.Document{ID: askDocID, Status: status, EmbedModel: &model}}
 	nums := make([]int, 0, len(pages))
 	for p := range pages {
 		nums = append(nums, p)
@@ -179,6 +181,11 @@ func TestAskRejects(t *testing.T) {
 	dbDown := errors.New("db down")
 	searchFails := newFakeAskRepo(t, repository.StatusReady, handbook)
 	searchFails.searchErr = dbDown
+	otherModel := newFakeAskRepo(t, repository.StatusReady, handbook)
+	gemini := "gemini-embedding-001"
+	otherModel.doc.EmbedModel = &gemini
+	unknownModel := newFakeAskRepo(t, repository.StatusReady, handbook)
+	unknownModel.doc.EmbedModel = nil
 
 	tests := []struct {
 		name     string
@@ -193,6 +200,9 @@ func TestAskRejects(t *testing.T) {
 		{"document still embedding", newFakeAskRepo(t, repository.StatusEmbedding, handbook), askDocID, "Hỏi gì đó?", ErrDocNotReady},
 		{"document failed", newFakeAskRepo(t, repository.StatusFailed, handbook), askDocID, "Hỏi gì đó?", ErrDocNotReady},
 		{"search error passes through", searchFails, askDocID, "Hỏi gì đó?", dbDown},
+		// Vector của mô hình khác không so sánh được: tìm kiếm sẽ ra kết quả vô nghĩa.
+		{"indexed with another model", otherModel, askDocID, "Hỏi gì đó?", ErrDocStale},
+		{"indexed with unknown model", unknownModel, askDocID, "Hỏi gì đó?", ErrDocStale},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -286,6 +296,8 @@ func TestBuildPrompt(t *testing.T) {
 		// nhận ra, và không gắn trích dẫn vào phần đó.
 		`"` + OutsideLabel + `"`,
 		"không ghi trích dẫn",
+		// Người dùng đối chiếu với bản gốc: "2 mm" không được thành "hai mi-li-mét".
+		"giữ nguyên số liệu",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("prompt missing %q:\n%s", want, got)

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "qt-lech-tam",
+    "doc": "quy-trinh-nghiem-thu.pdf",
+    "question": "Sai số độ lệch tâm cọc tối đa là bao nhiêu?",
+    "expect": { "source_text": "độ lệch tâm cọc", "pages": [2], "answer_any": [["5%"]] }
+  },
+  {
+    "id": "qt-tieu-chuan",
+    "doc": "quy-trinh-nghiem-thu.pdf",
+    "question": "Kiểm tra chất lượng cọc khoan nhồi theo tiêu chuẩn nào?",
+    "expect": { "source_text": "TCVN 9394", "pages": [2], "answer_any": [["9394"]] }
+  },
+  {
+    "id": "qt-hoan-cong",
+    "doc": "quy-trinh-nghiem-thu.pdf",
+    "question": "Hồ sơ hoàn công phải nộp mấy bộ và trong thời hạn bao lâu?",
+    "expect": { "source_text": "Điều 20.", "pages": [3], "answer_any": [["ba bộ", "3 bộ"], ["bảy ngày", "7 ngày"]] }
+  },
+  {
+    "id": "qt-lun",
+    "doc": "quy-trinh-nghiem-thu.pdf",
+    "question": "Tốc độ lún bao nhiêu thì hệ thống cảnh báo?",
+    "expect": { "source_text": "Điều 24", "pages": [3], "answer_any": [["2 mm", "2mm"]] }
+  },
+  {
+    "id": "qt-trac-dac",
+    "doc": "quy-trinh-nghiem-thu.pdf",
+    "question": "Dữ liệu trắc đạc được lưu trong bao lâu?",
+    "expect": { "source_text": "trắc đạc", "pages": [3], "answer_any": [["24 tháng", "hai mươi bốn tháng"]] }
+  },
+  {
+    "id": "qt-trach-nhiem",
+    "doc": "quy-trinh-nghiem-thu.pdf",
+    "question": "Ai chịu trách nhiệm lập hồ sơ nghiệm thu?",
+    "expect": { "source_text": "Điều 2.", "pages": [1], "answer_any": [["đơn vị thi công"]] }
+  },
+  {
+    "id": "qt-ngoai",
+    "doc": "quy-trinh-nghiem-thu.pdf",
+    "question": "Giá thép xây dựng năm 2026 là bao nhiêu?",
+    "expect": { "not_in_doc": true }
+  },
+  {
+    "id": "pl-dieu-208",
+    "doc": "phu-luc-dai.pdf",
+    "question": "Điều 208 quy định gì?",
+    "expect": { "source_text": "Điều 208.", "pages": [3], "answer_any": [["208"]] }
+  },
+  {
+    "id": "pl-dieu-104",
+    "doc": "phu-luc-dai.pdf",
+    "question": "Nội dung của Điều 104 là gì?",
+    "expect": { "source_text": "Điều 104.", "pages": [1], "answer_any": [["104"]] }
+  },
+  {
+    "id": "pl-muc-215",
+    "doc": "phu-luc-dai.pdf",
+    "question": "Mục kiểm tra số 215 yêu cầu đơn vị thi công làm gì?",
+    "expect": { "source_text": "Điều 215.", "pages": [3, 4], "answer_any": [["biên bản"]] }
+  },
+  {
+    "id": "pl-phu-luc-2",
+    "doc": "phu-luc-dai.pdf",
+    "question": "Phụ lục 2 có tên là gì?",
+    "expect": { "source_text": "PHỤ LỤC 2", "pages": [3], "answer_any": [["danh mục kiểm tra"]] }
+  },
+  {
+    "id": "pl-ngoai",
+    "doc": "phu-luc-dai.pdf",
+    "question": "Thủ đô của nước Pháp là gì?",
+    "expect": { "not_in_doc": true }
+  }
+]

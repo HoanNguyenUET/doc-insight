@@ -19,7 +19,7 @@ var ErrNoText = errors.New("PDF không có lớp văn bản (có thể là bản
 // Store là phần repository mà pipeline cần.
 type Store interface {
 	SetDocumentStage(ctx context.Context, id, status string, progress int) error
-	CompleteDocument(ctx context.Context, id string, pages []string, chunks []repository.NewChunk) error
+	CompleteDocument(ctx context.Context, id, embedModel string, pages []string, chunks []repository.NewChunk) error
 	FailDocument(ctx context.Context, id, message string) error
 }
 
@@ -27,6 +27,9 @@ type Store interface {
 // văn bản theo cùng thứ tự. Vector rỗng nghĩa là chưa có embedding (lưu NULL).
 type Embedder interface {
 	Embed(ctx context.Context, texts []string) ([][]float32, error)
+	// EmbedModel là tên mô hình, lưu cùng tài liệu để biết khi nào phải xử
+	// lý lại (vector của hai mô hình không so sánh được).
+	EmbedModel() string
 }
 
 // NoopEmbedder trả vector rỗng cho mọi văn bản (chunk lưu embedding NULL);
@@ -36,6 +39,8 @@ type NoopEmbedder struct{}
 func (NoopEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
 	return make([][]float32, len(texts)), nil
 }
+
+func (NoopEmbedder) EmbedModel() string { return "" }
 
 const (
 	embedBatchSize  = 50
@@ -114,7 +119,7 @@ func (p *Pipeline) Process(ctx context.Context, job Job) error {
 	for i, pg := range pages {
 		texts[i] = pg.Text
 	}
-	if err := p.store.CompleteDocument(ctx, job.DocumentID, texts, rows); err != nil {
+	if err := p.store.CompleteDocument(ctx, job.DocumentID, p.embedder.EmbedModel(), texts, rows); err != nil {
 		return deletedOr(err, "lưu chunk")
 	}
 	log.InfoContext(ctx, "ingest: saved", "chunks", len(rows), "status", repository.StatusReady)

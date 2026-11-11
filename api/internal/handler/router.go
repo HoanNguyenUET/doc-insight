@@ -37,6 +37,7 @@ func NewRouter(d Deps) http.Handler {
 			r.Get("/{id}/pages/{page}", d.Documents.Page)
 			r.Get("/{id}/chunks", d.Documents.Chunks)
 			r.Get("/{id}/file", d.Documents.File)
+			r.Post("/{id}/reprocess", d.Documents.Reprocess)
 			if d.Ask != nil {
 				r.Get("/{id}/ask", d.Ask.Ask)
 			}

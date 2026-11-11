@@ -79,6 +79,10 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
   chunk. Offset của chunk tính theo rune trên text này; frontend
   cắt bằng `Array.from`, không dùng `slice` trên UTF-16. Tài liệu
   xử lý trước migration 000003 không có trang, phải tải lên lại.
+- **Tài liệu ghi `embed_model`**: vector của hai mô hình embedding không so
+  sánh được. Tài liệu xử lý bằng mô hình khác mô hình đang chạy (hoặc không
+  rõ, NULL) có `needs_reprocess`, `/ask` trả `ErrDocStale` (409), và phải gọi
+  `POST /api/documents/{id}/reprocess` để xử lý lại từ file PDF gốc.
 - **Interface `LLMProvider` với hai implementation**: mock để
   test offline và demo không cần mạng.
 - **Chunk 500 token, chồng lấn 50**: nhỏ quá mất ngữ cảnh, to
@@ -94,6 +98,17 @@ cd api && go test ./... && go vet ./...    # kiểm tra api (test tích hợp b�
 cd web && npm run dev                      # frontend (Vite) ở http://localhost:3000
 cd web && npm test && npm run build && npm run lint    # kiểm tra frontend (Vitest)
 ```
+
+Đánh giá chất lượng câu trả lời (gọi API đang chạy, tốn 1 lượt model mỗi câu):
+
+```bash
+cd api && go run ./cmd/eval                # bộ câu hỏi ở api/eval/cases.json, PDF mẫu ở api/eval/docs
+cd api && go run ./cmd/eval -only pl- -out /tmp/eval.json -min 0.9
+```
+
+Mỗi câu chấm: truy xuất đúng nguồn (hit, MRR), trích dẫn hợp lệ và trỏ đúng
+nguồn, câu trả lời có thông tin cần có, câu ngoài tài liệu thì nói rõ không
+đề cập. Sửa prompt, chunking hay retrieval thì chạy lại để so.
 
 Test tích hợp cần Postgres có pgvector (db của docker compose):
 

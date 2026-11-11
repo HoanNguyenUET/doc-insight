@@ -130,6 +130,8 @@ type geminiEmbedResponse struct {
 	} `json:"embeddings"`
 }
 
+func (g *GeminiProvider) EmbedModel() string { return g.embedModel }
+
 func (g *GeminiProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
 	vecs := make([][]float32, 0, len(texts))
 	for start := 0; start < len(texts); start += geminiMaxEmbedBatch {

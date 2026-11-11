@@ -44,6 +44,21 @@ export function useChunks(id: string, enabled: boolean) {
   });
 }
 
+// useReprocessDocument xử lý lại tài liệu từ file gốc; tài liệu về trạng
+// thái đang xử lý nên useDocument/useDocuments tự hỏi lại tiến độ.
+export function useReprocessDocument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.reprocessDocument,
+    onSuccess: (doc) => {
+      qc.setQueryData(queryKeys.document(doc.id), doc);
+      void qc.invalidateQueries({ queryKey: queryKeys.documents });
+      qc.removeQueries({ queryKey: ["pages", doc.id] });
+      qc.removeQueries({ queryKey: queryKeys.chunks(doc.id) });
+    },
+  });
+}
+
 export function useDeleteDocument() {
   const qc = useQueryClient();
   return useMutation({

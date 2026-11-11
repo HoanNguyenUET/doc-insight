@@ -16,6 +16,7 @@ import (
 var (
 	ErrDocNotReady     = errors.New("tài liệu chưa xử lý xong")
 	ErrInvalidQuestion = errors.New("câu hỏi không hợp lệ")
+	ErrDocStale        = errors.New("tài liệu được xử lý bằng mô hình AI khác, hãy bấm \"Xử lý lại\" rồi hỏi lại")
 	ErrAIQuota         = errors.New("AI đã hết lượt dùng của gói miễn phí, hãy thử lại sau ít phút hoặc vào ngày mai")
 )
 
@@ -80,6 +81,11 @@ func (s *AskService) Ask(ctx context.Context, documentID, question string, w Ans
 	}
 	if doc.Status != repository.StatusReady {
 		return fmt.Errorf("%w (trạng thái %s)", ErrDocNotReady, doc.Status)
+	}
+	// Vector của mô hình khác (hoặc không rõ mô hình) không so sánh được với
+	// vector câu hỏi: tìm kiếm sẽ trả đoạn gần như ngẫu nhiên.
+	if model := s.llm.EmbedModel(); doc.EmbedModel == nil || *doc.EmbedModel != model {
+		return ErrDocStale
 	}
 	log := slog.With("document_id", doc.ID)
 	start := time.Now()
@@ -176,7 +182,7 @@ func buildPrompt(question string, sources []Source) string {
 	b.WriteString(`Bạn là trợ lý trả lời câu hỏi về một tài liệu nội bộ. Ưu tiên thông tin trong các đoạn trích bên dưới, và không bịa ra điều gì về tài liệu.
 Sau mỗi ý lấy từ đoạn trích, ghi trích dẫn dạng [[n]], với n là số của đoạn trích chứa thông tin đó; một ý dựa trên nhiều đoạn thì ghi [[1]][[3]].
 Nếu cần kiến thức chung (giải thích khái niệm, bối cảnh, gợi ý, soạn văn bản) hoặc câu hỏi nằm ngoài tài liệu, bạn được trả lời bằng hiểu biết của mình, nhưng đặt toàn bộ phần đó ở cuối, mở đầu bằng đúng "` + OutsideLabel + `" ở đầu một đoạn mới, và không ghi trích dẫn trong phần đó. Nếu tài liệu không đề cập điều được hỏi, nói rõ điều đó trước.
-Trả lời bằng tiếng Việt, ngắn gọn.
+Trả lời bằng tiếng Việt, ngắn gọn. Khi dẫn thông tin từ đoạn trích, giữ nguyên số liệu, đơn vị, mã số và tên riêng như trong đoạn trích (viết "2 mm", không viết "hai mi-li-mét").
 Viết văn xuôi, không dùng markdown (không **, *, #, gạch đầu dòng, bảng); muốn tách ý thì xuống đoạn bằng một dòng trống.
 
 Đoạn trích:

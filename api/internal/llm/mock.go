@@ -27,6 +27,9 @@ func NewMockProvider() *MockProvider {
 	return &MockProvider{Delay: 30 * time.Millisecond}
 }
 
+// EmbedModel: vector của mock không so sánh được với mô hình thật.
+func (m *MockProvider) EmbedModel() string { return "mock" }
+
 func (m *MockProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err

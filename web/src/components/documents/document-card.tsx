@@ -72,8 +72,14 @@ export function DocumentCard({ doc }: { doc: Document }) {
         </div>
       )}
       <div className="mt-auto flex items-center justify-between border-t border-rule-soft pt-[13px]">
-        <span className="text-[13px] text-ink-3">
-          {!ready ? " " : convCount ? `${convCount} hội thoại` : "Chưa có câu hỏi nào"}
+        <span className={cn("text-[13px]", doc.needs_reprocess ? "text-warn" : "text-ink-3")}>
+          {!ready
+            ? " "
+            : doc.needs_reprocess
+              ? "Cần xử lý lại để hỏi đáp chính xác"
+              : convCount
+                ? `${convCount} hội thoại`
+                : "Chưa có câu hỏi nào"}
         </span>
         <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
           {ready ? (

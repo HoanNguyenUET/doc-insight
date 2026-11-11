@@ -24,6 +24,7 @@ type fakeStore struct {
 	stages    []string
 	completed []repository.NewChunk
 	pages     []string
+	model     string
 	failMsg   string
 	missing   bool
 }
@@ -38,8 +39,8 @@ func (s *fakeStore) SetDocumentStage(_ context.Context, _ string, status string,
 	return nil
 }
 
-func (s *fakeStore) CompleteDocument(_ context.Context, _ string, pages []string, chunks []repository.NewChunk) error {
-	s.completed, s.pages = chunks, pages
+func (s *fakeStore) CompleteDocument(_ context.Context, _, model string, pages []string, chunks []repository.NewChunk) error {
+	s.completed, s.pages, s.model = chunks, pages, model
 	return nil
 }
 
@@ -53,6 +54,8 @@ type recordingEmbedder struct {
 	err     error
 	short   bool
 }
+
+func (e *recordingEmbedder) EmbedModel() string { return "rec-model" }
 
 func (e *recordingEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
 	e.batches = append(e.batches, len(texts))
@@ -126,6 +129,9 @@ func TestPipelineProcess(t *testing.T) {
 	}
 
 	// Lưu đúng văn bản trang mà offset của chunk tham chiếu, kể cả trang trống.
+	if store.model != "rec-model" {
+		t.Errorf("embed model = %q, want the embedder's model", store.model)
+	}
 	if len(store.pages) != 3 {
 		t.Fatalf("pages = %d, want 3", len(store.pages))
 	}

@@ -29,7 +29,7 @@ func errorStatus(err error) int {
 		return http.StatusBadRequest
 	case errors.Is(err, service.ErrDocNotFound), errors.Is(err, service.ErrPageNotFound), errors.Is(err, service.ErrFileMissing):
 		return http.StatusNotFound
-	case errors.Is(err, service.ErrDocNotReady):
+	case errors.Is(err, service.ErrDocNotReady), errors.Is(err, service.ErrDocProcessing), errors.Is(err, service.ErrDocStale):
 		return http.StatusConflict
 	case errors.Is(err, service.ErrFileTooLarge), errors.As(err, &tooBig):
 		return http.StatusRequestEntityTooLarge

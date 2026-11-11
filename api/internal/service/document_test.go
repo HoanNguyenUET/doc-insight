@@ -61,6 +61,35 @@ func (r *fakeRepo) DeleteDocument(_ context.Context, id string) error {
 	return nil
 }
 
+func (r *fakeRepo) ResetDocument(_ context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	d, ok := r.docs[id]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	d.Status, d.Progress, d.Error = repository.StatusPending, 0, nil
+	r.docs[id] = d
+	return nil
+}
+
+func (r *fakeRepo) FailDocument(_ context.Context, id, msg string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	d := r.docs[id]
+	d.Status, d.Error = repository.StatusFailed, &msg
+	r.docs[id] = d
+	return nil
+}
+
+func (r *fakeRepo) set(id string, f func(*repository.Document)) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	d := r.docs[id]
+	f(&d)
+	r.docs[id] = d
+}
+
 func (r *fakeRepo) GetPage(_ context.Context, id string, number int) (repository.Page, error) {
 	pages := r.pages[id]
 	if number < 1 || number > len(pages) {
@@ -108,7 +137,7 @@ func dirEntries(t *testing.T, dir string) []string {
 func newSvc(t *testing.T) (*DocumentService, *fakeRepo, *fakeQueue, string) {
 	dir := t.TempDir()
 	repo, queue := newFakeRepo(), &fakeQueue{}
-	return NewDocumentService(repo, queue, dir), repo, queue, dir
+	return NewDocumentService(repo, queue, dir, "model-moi"), repo, queue, dir
 }
 
 var samplePDF = []byte("%PDF-1.4\nnội dung giả\n%%EOF")
@@ -251,7 +280,7 @@ func TestPage(t *testing.T) {
 	repo.docs["busy"] = repository.Document{ID: "busy", Status: repository.StatusEmbedding}
 	repo.pages = map[string][]string{"ready": {"một", "", "ba"}}
 	repo.chunks = []repository.Chunk{{Index: 0, PageNumber: 1}, {Index: 1, PageNumber: 3}, {Index: 2, PageNumber: 3}}
-	svc := NewDocumentService(repo, &fakeQueue{}, t.TempDir())
+	svc := NewDocumentService(repo, &fakeQueue{}, t.TempDir(), "model-moi")
 
 	tests := []struct {
 		name       string
@@ -320,5 +349,81 @@ func TestFile(t *testing.T) {
 				t.Errorf("File = %d bytes, doc %+v", len(body), got)
 			}
 		})
+	}
+}
+
+func strp(s string) *string { return &s }
+
+func TestNeedsReprocess(t *testing.T) {
+	tests := []struct {
+		name   string
+		status string
+		model  *string
+		want   bool
+	}{
+		{"cùng mô hình", repository.StatusReady, strp("model-moi"), false},
+		{"mô hình khác", repository.StatusReady, strp("mock"), true},
+		{"chưa rõ mô hình (xử lý trước khi có cột)", repository.StatusReady, nil, true},
+		{"đang xử lý thì chưa tính", repository.StatusEmbedding, nil, false},
+		{"lỗi thì đã có trạng thái riêng", repository.StatusFailed, nil, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, repo, _, _ := newSvc(t)
+			doc, _ := svc.Upload(context.Background(), "a.pdf", bytes.NewReader(samplePDF))
+			repo.set(doc.ID, func(d *repository.Document) { d.Status, d.EmbedModel = tt.status, tt.model })
+			got, err := svc.Get(context.Background(), doc.ID)
+			if err != nil || got.NeedsReprocess != tt.want {
+				t.Errorf("NeedsReprocess = %v, %v; want %v", got.NeedsReprocess, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestReprocess(t *testing.T) {
+	tests := []struct {
+		name     string
+		status   string
+		dropFile bool
+		queueErr error
+		wantErr  error
+		wantJob  bool
+		want     string // trạng thái sau khi gọi
+	}{
+		{"tài liệu sẵn sàng", repository.StatusReady, false, nil, nil, true, repository.StatusPending},
+		{"tài liệu lỗi được thử lại", repository.StatusFailed, false, nil, nil, true, repository.StatusPending},
+		{"đang xử lý", repository.StatusEmbedding, false, nil, ErrDocProcessing, false, repository.StatusEmbedding},
+		{"mất file gốc", repository.StatusReady, true, nil, ErrFileMissing, false, repository.StatusReady},
+		{"hàng đợi đầy", repository.StatusReady, false, ingest.ErrQueueFull, ErrBusy, false, repository.StatusFailed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, repo, queue, _ := newSvc(t)
+			ctx := context.Background()
+			doc, _ := svc.Upload(ctx, "a.pdf", bytes.NewReader(samplePDF))
+			queue.jobs, queue.err = nil, tt.queueErr
+			repo.set(doc.ID, func(d *repository.Document) { d.Status = tt.status })
+			if tt.dropFile {
+				os.Remove(svc.FilePath(doc.ID))
+			}
+
+			_, err := svc.Reprocess(ctx, doc.ID)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("err = %v, want %v", err, tt.wantErr)
+			}
+			if got := len(queue.jobs) == 1; got != tt.wantJob {
+				t.Errorf("job enqueued = %v, want %v", got, tt.wantJob)
+			}
+			if tt.wantJob && queue.jobs[0].Path != svc.FilePath(doc.ID) {
+				t.Errorf("job path = %q", queue.jobs[0].Path)
+			}
+			if got, _ := svc.Get(ctx, doc.ID); got.Status != tt.want {
+				t.Errorf("status = %s, want %s", got.Status, tt.want)
+			}
+		})
+	}
+	svc, _, _, _ := newSvc(t)
+	if _, err := svc.Reprocess(context.Background(), "00000000-0000-0000-0000-000000000009"); !errors.Is(err, ErrDocNotFound) {
+		t.Errorf("missing doc err = %v, want ErrDocNotFound", err)
 	}
 }

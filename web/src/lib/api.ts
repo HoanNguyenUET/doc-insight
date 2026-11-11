@@ -13,6 +13,10 @@ export type Document = {
   status: DocumentStatus;
   progress: number;
   error: string | null;
+  // Mô hình embedding đã dùng; null = không rõ (xử lý trước khi API ghi lại).
+  embed_model: string | null;
+  // Đã xử lý bằng mô hình khác mô hình đang chạy: tìm kiếm sẽ sai, phải xử lý lại.
+  needs_reprocess: boolean;
   processing_started_at: string | null;
   created_at: string;
   updated_at: string;
@@ -78,6 +82,7 @@ export const api = {
   listDocuments: () => request<{ documents: Document[] }>("/api/documents").then((r) => r.documents),
   getDocument: (id: string) => request<Document>(`/api/documents/${id}`),
   deleteDocument: (id: string) => request<void>(`/api/documents/${id}`, { method: "DELETE" }),
+  reprocessDocument: (id: string) => request<Document>(`/api/documents/${id}/reprocess`, { method: "POST" }),
   getPage: (id: string, pageNo: number) => request<PageData>(`/api/documents/${id}/pages/${pageNo}`),
   listChunks: (id: string) => request<{ chunks: Chunk[] }>(`/api/documents/${id}/chunks`).then((r) => r.chunks),
   fileUrl: (id: string) => `${API_URL}/api/documents/${id}/file`,

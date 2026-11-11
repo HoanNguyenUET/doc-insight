@@ -36,7 +36,7 @@ func TestSearchChunks(t *testing.T) {
 	other, _ := db.CreateDocument(ctx, "b.pdf", 1)
 	near := unitAt(1)
 	near[2] = 0.5
-	if err := db.CompleteDocument(ctx, doc.ID, blankPages(3), []NewChunk{
+	if err := db.CompleteDocument(ctx, doc.ID, "", blankPages(3), []NewChunk{
 		{Index: 0, Content: "không", PageNumber: 1, CharStart: 0, CharEnd: 5, Embedding: unitAt(0)},
 		{Index: 1, Content: "gần nhất", PageNumber: 2, CharStart: 7, CharEnd: 15, Embedding: unitAt(1)},
 		{Index: 2, Content: "gần nhì", PageNumber: 3, CharStart: 3, CharEnd: 10, Embedding: near},
@@ -45,7 +45,7 @@ func TestSearchChunks(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Tài liệu khác có chunk trùng hẳn vector truy vấn: không được lẫn vào.
-	if err := db.CompleteDocument(ctx, other.ID, blankPages(1), []NewChunk{
+	if err := db.CompleteDocument(ctx, other.ID, "", blankPages(1), []NewChunk{
 		{Index: 0, Content: "tài liệu khác", PageNumber: 1, CharStart: 0, CharEnd: 13, Embedding: unitAt(1)},
 	}); err != nil {
 		t.Fatal(err)
@@ -114,7 +114,7 @@ func TestSearchChunksNotTruncatedByIndex(t *testing.T) {
 		for i := 0; i < 50; i++ {
 			chunks = append(chunks, NewChunk{Index: i, Content: "x", PageNumber: 1, CharStart: 0, CharEnd: 1, Embedding: randomVec(r)})
 		}
-		if err := db.CompleteDocument(ctx, doc.ID, blankPages(1), chunks); err != nil {
+		if err := db.CompleteDocument(ctx, doc.ID, "", blankPages(1), chunks); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -123,7 +123,7 @@ func TestSearchChunksNotTruncatedByIndex(t *testing.T) {
 	for i := 0; i < 8; i++ {
 		chunks = append(chunks, NewChunk{Index: i, Content: "y", PageNumber: 1, CharStart: 0, CharEnd: 1, Embedding: randomVec(r)})
 	}
-	if err := db.CompleteDocument(ctx, target.ID, blankPages(1), chunks); err != nil {
+	if err := db.CompleteDocument(ctx, target.ID, "", blankPages(1), chunks); err != nil {
 		t.Fatal(err)
 	}
 	// Dựng lại index trên dữ liệu thật để các cụm ivfflat có ý nghĩa.

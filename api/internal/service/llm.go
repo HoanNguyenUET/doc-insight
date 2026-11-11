@@ -7,6 +7,8 @@ import "context"
 type LLMProvider interface {
 	// Embed trả đúng một vector cho mỗi văn bản, cùng thứ tự.
 	Embed(ctx context.Context, texts []string) ([][]float32, error)
+	// EmbedModel là tên mô hình embedding (lưu cùng tài liệu).
+	EmbedModel() string
 	// Stream gửi từng mảnh câu trả lời vào out cho tới khi xong, lỗi hoặc ctx
 	// bị huỷ. Stream không đóng out: người gọi sở hữu channel.
 	Stream(ctx context.Context, prompt string, out chan<- string) error
