@@ -14,6 +14,7 @@ import (
 	"github.com/HoanNguyenUET/doc-insight/api/internal/config"
 	"github.com/HoanNguyenUET/doc-insight/api/internal/handler"
 	"github.com/HoanNguyenUET/doc-insight/api/internal/ingest"
+	"github.com/HoanNguyenUET/doc-insight/api/internal/llm"
 	"github.com/HoanNguyenUET/doc-insight/api/internal/repository"
 	"github.com/HoanNguyenUET/doc-insight/api/internal/service"
 	"github.com/HoanNguyenUET/doc-insight/api/migrations"
@@ -62,7 +63,8 @@ func run(ctx context.Context) error {
 
 	// Pool dùng context riêng: chỉ dừng sau khi HTTP server đã ngừng nhận
 	// upload, và phải dừng trước khi đóng DB (defer chạy ngược thứ tự).
-	pool := ingest.NewPool(ingest.NewPipeline(db, ingest.NoopEmbedder{}), ingestWorkers, ingestQueueSize, ingestJobTimeout)
+	provider := newLLMProvider(cfg)
+	pool := ingest.NewPool(ingest.NewPipeline(db, provider), ingestWorkers, ingestQueueSize, ingestJobTimeout)
 	poolCtx, stopPool := context.WithCancel(context.WithoutCancel(ctx))
 	pool.Start(poolCtx)
 	defer func() {
@@ -74,6 +76,7 @@ func run(ctx context.Context) error {
 	router := handler.NewRouter(handler.Deps{
 		Health:         handler.NewHealthHandler(service.NewHealthService(db)),
 		Documents:      handler.NewDocumentHandler(service.NewDocumentService(db, pool, cfg.StorageDir)),
+		Ask:            handler.NewAskHandler(service.NewAskService(db, provider)),
 		AllowedOrigins: cfg.AllowedOrigins,
 	})
 
@@ -108,4 +111,13 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("shutdown: %w", err)
 	}
 	return nil
+}
+
+// newLLMProvider chọn provider theo LLM_PROVIDER (config.Load đã kiểm tra
+// giá trị và LLM_API_KEY).
+func newLLMProvider(cfg config.Config) service.LLMProvider {
+	if cfg.LLMProvider == "gemini" {
+		return llm.NewGeminiProvider(cfg.LLMAPIKey, cfg.LLMEmbedModel, cfg.LLMChatModel)
+	}
+	return llm.NewMockProvider()
 }

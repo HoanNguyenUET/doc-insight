@@ -14,6 +14,7 @@ import (
 type Deps struct {
 	Health         *HealthHandler
 	Documents      *DocumentHandler
+	Ask            *AskHandler
 	AllowedOrigins []string
 }
 
@@ -33,6 +34,9 @@ func NewRouter(d Deps) http.Handler {
 			r.Get("/", d.Documents.List)
 			r.Get("/{id}", d.Documents.Get)
 			r.Delete("/{id}", d.Documents.Delete)
+			if d.Ask != nil {
+				r.Get("/{id}/ask", d.Ask.Ask)
+			}
 		})
 	}
 

@@ -25,10 +25,12 @@ func errorStatus(err error) int {
 	var br badRequest
 	var tooBig *http.MaxBytesError
 	switch {
-	case errors.As(err, &br), errors.Is(err, service.ErrInvalidFile):
+	case errors.As(err, &br), errors.Is(err, service.ErrInvalidFile), errors.Is(err, service.ErrInvalidQuestion):
 		return http.StatusBadRequest
 	case errors.Is(err, service.ErrDocNotFound):
 		return http.StatusNotFound
+	case errors.Is(err, service.ErrDocNotReady):
+		return http.StatusConflict
 	case errors.Is(err, service.ErrFileTooLarge), errors.As(err, &tooBig):
 		return http.StatusRequestEntityTooLarge
 	case errors.Is(err, service.ErrBusy):
@@ -41,6 +43,13 @@ func errorStatus(err error) int {
 // writeError trả {"error": ..., "request_id": ...}. Lỗi 5xx chỉ trả câu chung
 // (không lộ chi tiết nội bộ) và được ghi log kèm request_id để tra cứu.
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
+	status, msg := publicError(r, err)
+	writeJSON(w, status, errorBody{Error: msg, RequestID: middleware.GetReqID(r.Context())})
+}
+
+// publicError trả status và câu báo lỗi được phép gửi cho client; lỗi 5xx
+// được ghi log ở đây.
+func publicError(r *http.Request, err error) (int, string) {
 	status := errorStatus(err)
 	msg := err.Error()
 	switch {
@@ -51,5 +60,5 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 			"request_id", middleware.GetReqID(r.Context()))
 		msg = "lỗi máy chủ nội bộ"
 	}
-	writeJSON(w, status, errorBody{Error: msg, RequestID: middleware.GetReqID(r.Context())})
+	return status, msg
 }

@@ -29,8 +29,8 @@ type Embedder interface {
 	Embed(ctx context.Context, texts []string) ([][]float32, error)
 }
 
-// NoopEmbedder là embedder tạm, trả vector rỗng cho mọi văn bản.
-// TODO: thay bằng provider thật (Gemini) ở bước sau.
+// NoopEmbedder trả vector rỗng cho mọi văn bản (chunk lưu embedding NULL);
+// dùng trong test không cần embedding.
 type NoopEmbedder struct{}
 
 func (NoopEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {

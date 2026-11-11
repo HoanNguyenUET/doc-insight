@@ -27,6 +27,8 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_EMBED_MODEL: ${LLM_EMBED_MODEL:-}
+      LLM_CHAT_MODEL: ${LLM_CHAT_MODEL:-}
       STORAGE_DIR: /data/uploads
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
     volumes:

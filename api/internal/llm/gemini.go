@@ -1,0 +1,299 @@
+package llm
+
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"math/rand/v2"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+)
+
+const (
+	DefaultGeminiEmbedModel = "text-embedding-004"
+	DefaultGeminiChatModel  = "gemini-2.0-flash"
+
+	geminiBaseURL = "https://generativelanguage.googleapis.com/v1beta"
+	// geminiTimeout áp cho từng lần gọi, kể cả thời gian đọc hết stream.
+	geminiTimeout     = 60 * time.Second
+	geminiMaxRetries  = 3
+	geminiBaseBackoff = 500 * time.Millisecond
+	geminiMaxBackoff  = 30 * time.Second
+	// Giới hạn số văn bản của một lần batchEmbedContents.
+	geminiMaxEmbedBatch = 100
+	// Một dòng SSE chứa trọn một JSON response; 1 MB là dư.
+	geminiMaxSSELine = 1 << 20
+)
+
+// ErrBlocked: Gemini từ chối prompt hoặc dừng câu trả lời vì bộ lọc an toàn.
+var ErrBlocked = errors.New("gemini chặn nội dung")
+
+// APIError là response lỗi (không phải 200) của Gemini API.
+type APIError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("gemini: HTTP %d: %s", e.StatusCode, e.Message)
+}
+
+type GeminiProvider struct {
+	apiKey     string
+	embedModel string
+	chatModel  string
+	baseURL    string
+	client     *http.Client
+	timeout    time.Duration
+	maxRetries int
+	backoff    time.Duration
+	log        *slog.Logger
+}
+
+// NewGeminiProvider tạo provider; model rỗng thì dùng model mặc định.
+func NewGeminiProvider(apiKey, embedModel, chatModel string) *GeminiProvider {
+	if embedModel == "" {
+		embedModel = DefaultGeminiEmbedModel
+	}
+	if chatModel == "" {
+		chatModel = DefaultGeminiChatModel
+	}
+	return &GeminiProvider{
+		apiKey:     apiKey,
+		embedModel: embedModel,
+		chatModel:  chatModel,
+		baseURL:    geminiBaseURL,
+		client:     &http.Client{},
+		timeout:    geminiTimeout,
+		maxRetries: geminiMaxRetries,
+		backoff:    geminiBaseBackoff,
+		log:        slog.Default(),
+	}
+}
+
+type geminiPart struct {
+	Text    string `json:"text"`
+	Thought bool   `json:"thought,omitempty"`
+}
+
+type geminiContent struct {
+	Role  string       `json:"role,omitempty"`
+	Parts []geminiPart `json:"parts"`
+}
+
+type geminiEmbedRequest struct {
+	Model   string        `json:"model"`
+	Content geminiContent `json:"content"`
+	// Model mới (gemini-embedding-*) mặc định nhiều chiều hơn 768.
+	OutputDimensionality int `json:"outputDimensionality"`
+}
+
+type geminiEmbedResponse struct {
+	Embeddings []struct {
+		Values []float32 `json:"values"`
+	} `json:"embeddings"`
+}
+
+func (g *GeminiProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+	vecs := make([][]float32, 0, len(texts))
+	for start := 0; start < len(texts); start += geminiMaxEmbedBatch {
+		batch := texts[start:min(start+geminiMaxEmbedBatch, len(texts))]
+		v, err := g.embedBatch(ctx, batch)
+		if err != nil {
+			return nil, err
+		}
+		vecs = append(vecs, v...)
+	}
+	return vecs, nil
+}
+
+func (g *GeminiProvider) embedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+	model := "models/" + g.embedModel
+	reqs := make([]geminiEmbedRequest, len(texts))
+	for i, t := range texts {
+		reqs[i] = geminiEmbedRequest{Model: model, Content: geminiContent{Parts: []geminiPart{{Text: t}}}, OutputDimensionality: Dimensions}
+	}
+	body, err := json.Marshal(map[string]any{"requests": reqs})
+	if err != nil {
+		return nil, fmt.Errorf("gemini embed: encode: %w", err)
+	}
+
+	resp, cancel, err := g.post(ctx, "/"+model+":batchEmbedContents", body)
+	if err != nil {
+		return nil, fmt.Errorf("gemini embed: %w", err)
+	}
+	defer cancel()
+	defer resp.Body.Close()
+
+	var res geminiEmbedResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("gemini embed: decode: %w", err)
+	}
+	if len(res.Embeddings) != len(texts) {
+		return nil, fmt.Errorf("gemini embed: nhận %d vector cho %d văn bản", len(res.Embeddings), len(texts))
+	}
+	vecs := make([][]float32, len(texts))
+	for i, e := range res.Embeddings {
+		if len(e.Values) != Dimensions {
+			return nil, fmt.Errorf("gemini embed: vector %d chiều, cần %d (model %s)", len(e.Values), Dimensions, g.embedModel)
+		}
+		vecs[i] = e.Values
+	}
+	return vecs, nil
+}
+
+type geminiStreamChunk struct {
+	Candidates []struct {
+		Content      geminiContent `json:"content"`
+		FinishReason string        `json:"finishReason"`
+	} `json:"candidates"`
+	PromptFeedback *struct {
+		BlockReason string `json:"blockReason"`
+	} `json:"promptFeedback"`
+	Error *geminiErrorBody `json:"error"`
+}
+
+// Các finishReason nghĩa là câu trả lời bị cắt vì chính sách, không phải xong.
+var geminiBlockedReasons = map[string]bool{
+	"SAFETY": true, "RECITATION": true, "BLOCKLIST": true, "PROHIBITED_CONTENT": true, "SPII": true,
+}
+
+// Stream gọi streamGenerateContent?alt=sse và đọc từng dòng "data: {...}".
+// Chỉ retry trước khi có token nào được gửi (lỗi HTTP xảy ra trước body).
+func (g *GeminiProvider) Stream(ctx context.Context, prompt string, out chan<- string) error {
+	body, err := json.Marshal(map[string]any{
+		"contents": []geminiContent{{Role: "user", Parts: []geminiPart{{Text: prompt}}}},
+	})
+	if err != nil {
+		return fmt.Errorf("gemini stream: encode: %w", err)
+	}
+
+	resp, cancel, err := g.post(ctx, "/models/"+g.chatModel+":streamGenerateContent?alt=sse", body)
+	if err != nil {
+		return fmt.Errorf("gemini stream: %w", err)
+	}
+	defer cancel()
+	defer resp.Body.Close()
+
+	sc := bufio.NewScanner(resp.Body)
+	sc.Buffer(make([]byte, 0, 64<<10), geminiMaxSSELine)
+	for sc.Scan() {
+		data, ok := strings.CutPrefix(sc.Text(), "data:")
+		if !ok {
+			continue // dòng trống phân tách event, comment, event:/id:
+		}
+		var chunk geminiStreamChunk
+		if err := json.Unmarshal([]byte(strings.TrimSpace(data)), &chunk); err != nil {
+			return fmt.Errorf("gemini stream: decode: %w", err)
+		}
+		if chunk.Error != nil {
+			return fmt.Errorf("gemini stream: %w", &APIError{StatusCode: chunk.Error.Code, Message: chunk.Error.Message})
+		}
+		if chunk.PromptFeedback != nil && chunk.PromptFeedback.BlockReason != "" {
+			return fmt.Errorf("gemini stream: %w: prompt bị chặn (%s)", ErrBlocked, chunk.PromptFeedback.BlockReason)
+		}
+		for _, c := range chunk.Candidates {
+			for _, p := range c.Content.Parts {
+				if p.Thought || p.Text == "" {
+					continue
+				}
+				if err := send(ctx, out, p.Text); err != nil {
+					return err
+				}
+			}
+			if geminiBlockedReasons[c.FinishReason] {
+				return fmt.Errorf("gemini stream: %w: câu trả lời bị dừng (%s)", ErrBlocked, c.FinishReason)
+			}
+		}
+	}
+	if err := sc.Err(); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return fmt.Errorf("gemini stream: đọc: %w", err)
+	}
+	return nil
+}
+
+type geminiErrorBody struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+// post gửi body JSON tới baseURL+path, retry tối đa maxRetries lần với
+// backoff luỹ thừa khi gặp 429 hoặc 5xx. Thành công thì trả response đang mở
+// cùng hàm huỷ timeout của lần gọi đó; người gọi đóng body rồi gọi cancel.
+//
+// API key đi qua header thay vì query string để không lộ trong log và lỗi.
+func (g *GeminiProvider) post(ctx context.Context, path string, body []byte) (*http.Response, context.CancelFunc, error) {
+	for attempt := 0; ; attempt++ {
+		actx, cancel := context.WithTimeout(ctx, g.timeout)
+		req, err := http.NewRequestWithContext(actx, http.MethodPost, g.baseURL+path, bytes.NewReader(body))
+		if err != nil {
+			cancel()
+			return nil, nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("x-goog-api-key", g.apiKey)
+
+		resp, err := g.client.Do(req)
+		if err != nil {
+			cancel()
+			return nil, nil, err
+		}
+		if resp.StatusCode == http.StatusOK {
+			return resp, cancel, nil
+		}
+
+		apiErr := readAPIError(resp)
+		resp.Body.Close()
+		cancel()
+		retryable := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500
+		if !retryable || attempt >= g.maxRetries {
+			return nil, nil, apiErr
+		}
+
+		wait := g.backoffFor(attempt, resp.Header.Get("Retry-After"))
+		g.log.WarnContext(ctx, "gemini: retrying", "status", resp.StatusCode, "attempt", attempt+1, "wait_ms", wait.Milliseconds())
+		t := time.NewTimer(wait)
+		select {
+		case <-t.C:
+		case <-ctx.Done():
+			t.Stop()
+			return nil, nil, fmt.Errorf("%w (lỗi trước đó: %w)", ctx.Err(), apiErr)
+		}
+	}
+}
+
+// backoffFor: backoff·2^attempt cộng jitter tới 50%; Retry-After (giây) của
+// server được ưu tiên nếu lớn hơn. Tối đa geminiMaxBackoff.
+func (g *GeminiProvider) backoffFor(attempt int, retryAfter string) time.Duration {
+	d := g.backoff << attempt
+	d += time.Duration(rand.Int64N(int64(d)/2 + 1))
+	if s, err := strconv.Atoi(retryAfter); err == nil && time.Duration(s)*time.Second > d {
+		d = time.Duration(s) * time.Second
+	}
+	return min(d, geminiMaxBackoff)
+}
+
+func readAPIError(resp *http.Response) *APIError {
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
+	var body struct {
+		Error geminiErrorBody `json:"error"`
+	}
+	msg := strings.TrimSpace(string(raw))
+	if json.Unmarshal(raw, &body) == nil && body.Error.Message != "" {
+		msg = body.Error.Message
+	}
+	if msg == "" {
+		msg = http.StatusText(resp.StatusCode)
+	}
+	return &APIError{StatusCode: resp.StatusCode, Message: msg}
+}

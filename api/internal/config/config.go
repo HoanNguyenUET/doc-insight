@@ -19,6 +19,10 @@ type Config struct {
 	LogLevel    slog.Level
 	LLMProvider string
 	LLMAPIKey   string
+	// Model của Gemini (LLM_EMBED_MODEL, LLM_CHAT_MODEL); rỗng = mặc định
+	// của package llm.
+	LLMEmbedModel string
+	LLMChatModel  string
 	// StorageDir chứa file PDF đã tải lên (STORAGE_DIR).
 	StorageDir string
 	// AllowedOrigins cho CORS, từ ALLOWED_ORIGINS phân tách bằng dấu phẩy.
@@ -33,10 +37,12 @@ func Load() (Config, error) {
 	var errs []error
 
 	cfg := Config{
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		LLMProvider: strings.ToLower(getenv("LLM_PROVIDER", "mock")),
-		LLMAPIKey:   os.Getenv("LLM_API_KEY"),
-		StorageDir:  getenv("STORAGE_DIR", "storage"),
+		DatabaseURL:   os.Getenv("DATABASE_URL"),
+		LLMProvider:   strings.ToLower(getenv("LLM_PROVIDER", "mock")),
+		LLMAPIKey:     os.Getenv("LLM_API_KEY"),
+		LLMEmbedModel: os.Getenv("LLM_EMBED_MODEL"),
+		LLMChatModel:  os.Getenv("LLM_CHAT_MODEL"),
+		StorageDir:    getenv("STORAGE_DIR", "storage"),
 	}
 
 	port, err := intEnv("PORT", 8080)
