@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -21,7 +22,6 @@ const (
 	// Không dùng gemini-embedding-2: nó gộp mọi văn bản của một request thành
 	// một vector, trong khi mỗi chunk cần vector riêng.
 	DefaultGeminiEmbedModel = "gemini-embedding-001"
-	DefaultGeminiChatModel  = "gemini-3.5-flash"
 
 	geminiBaseURL = "https://generativelanguage.googleapis.com/v1beta"
 	// geminiTimeout áp cho từng lần gọi, kể cả thời gian đọc hết stream.
@@ -38,6 +38,10 @@ const (
 	// Một dòng SSE chứa trọn một JSON response; 1 MB là dư.
 	geminiMaxSSELine = 1 << 20
 )
+
+// DefaultGeminiChatModels thử lần lượt: quota miễn phí tính riêng từng model,
+// nên khi model tốt nhất hết lượt trong ngày thì rơi xuống bản lite.
+var DefaultGeminiChatModels = []string{"gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"}
 
 // ErrBlocked: Gemini từ chối prompt hoặc dừng câu trả lời vì bộ lọc an toàn.
 var ErrBlocked = errors.New("gemini chặn nội dung")
@@ -58,33 +62,44 @@ func (e *APIError) Error() string {
 type GeminiProvider struct {
 	apiKey     string
 	embedModel string
-	chatModel  string
+	// chatModels thử theo thứ tự khi model trước hết quota hoặc không còn.
+	// Embedding chỉ có một model: vector của hai model khác nhau không so
+	// sánh được với nhau.
+	chatModels []string
 	baseURL    string
 	client     *http.Client
 	timeout    time.Duration
 	maxRetries int
 	backoff    time.Duration
 	log        *slog.Logger
+	now        func() time.Time
+
+	mu sync.Mutex
+	// cooldown[model]: chưa tới thời điểm này thì bỏ qua model (hết quota
+	// ngày, model không còn), để mỗi câu hỏi không tốn thêm một request hỏng.
+	cooldown map[string]time.Time
 }
 
 // NewGeminiProvider tạo provider; model rỗng thì dùng model mặc định.
-func NewGeminiProvider(apiKey, embedModel, chatModel string) *GeminiProvider {
+func NewGeminiProvider(apiKey, embedModel string, chatModels []string) *GeminiProvider {
 	if embedModel == "" {
 		embedModel = DefaultGeminiEmbedModel
 	}
-	if chatModel == "" {
-		chatModel = DefaultGeminiChatModel
+	if len(chatModels) == 0 {
+		chatModels = DefaultGeminiChatModels
 	}
 	return &GeminiProvider{
 		apiKey:     apiKey,
 		embedModel: embedModel,
-		chatModel:  chatModel,
+		chatModels: chatModels,
 		baseURL:    geminiBaseURL,
 		client:     &http.Client{},
 		timeout:    geminiTimeout,
 		maxRetries: geminiMaxRetries,
 		backoff:    geminiBaseBackoff,
 		log:        slog.Default(),
+		now:        time.Now,
+		cooldown:   map[string]time.Time{},
 	}
 }
 
@@ -135,7 +150,7 @@ func (g *GeminiProvider) embedBatch(ctx context.Context, texts []string) ([][]fl
 		return nil, fmt.Errorf("gemini embed: encode: %w", err)
 	}
 
-	resp, cancel, err := g.post(ctx, "/"+model+":batchEmbedContents", body)
+	resp, cancel, err := g.post(ctx, "/"+model+":batchEmbedContents", body, true)
 	if err != nil {
 		return nil, fmt.Errorf("gemini embed: %w", err)
 	}
@@ -176,7 +191,8 @@ var geminiBlockedReasons = map[string]bool{
 }
 
 // Stream gọi streamGenerateContent?alt=sse và đọc từng dòng "data: {...}".
-// Chỉ retry trước khi có token nào được gửi (lỗi HTTP xảy ra trước body).
+// Chỉ retry hay đổi model trước khi có token nào được gửi (lỗi HTTP xảy ra
+// trước body).
 func (g *GeminiProvider) Stream(ctx context.Context, prompt string, out chan<- string) error {
 	body, err := json.Marshal(map[string]any{
 		"contents": []geminiContent{{Role: "user", Parts: []geminiPart{{Text: prompt}}}},
@@ -185,7 +201,7 @@ func (g *GeminiProvider) Stream(ctx context.Context, prompt string, out chan<- s
 		return fmt.Errorf("gemini stream: encode: %w", err)
 	}
 
-	resp, cancel, err := g.post(ctx, "/models/"+g.chatModel+":streamGenerateContent?alt=sse", body)
+	resp, cancel, err := g.openStream(ctx, body)
 	if err != nil {
 		return fmt.Errorf("gemini stream: %w", err)
 	}
@@ -232,6 +248,72 @@ func (g *GeminiProvider) Stream(ctx context.Context, prompt string, out chan<- s
 	return nil
 }
 
+// Thời gian bỏ qua một model sau khi nó hỏng: hết quota (khi server không
+// nói chờ bao lâu) và model không còn (404).
+const (
+	geminiQuotaCooldown   = time.Minute
+	geminiMissingCooldown = time.Hour
+)
+
+// openStream mở stream với model đầu tiên còn dùng được trong chatModels.
+// Model hết quota (429), không còn (404) hay lỗi máy chủ (5xx) thì chuyển
+// sang model kế tiếp; chỉ model cuối mới chờ quota theo phút, vì người dùng
+// đang đợi câu trả lời.
+func (g *GeminiProvider) openStream(ctx context.Context, body []byte) (*http.Response, context.CancelFunc, error) {
+	models := g.availableChatModels()
+	var lastErr error
+	for i, model := range models {
+		last := i == len(models)-1
+		resp, cancel, err := g.post(ctx, "/models/"+model+":streamGenerateContent?alt=sse", body, last)
+		if err == nil {
+			return resp, cancel, nil
+		}
+		var apiErr *APIError
+		if !errors.As(err, &apiErr) {
+			return nil, nil, err
+		}
+		switch {
+		case apiErr.StatusCode == http.StatusTooManyRequests:
+			g.coolDown(model, max(apiErr.RetryDelay, geminiQuotaCooldown))
+		case apiErr.StatusCode == http.StatusNotFound:
+			g.coolDown(model, geminiMissingCooldown)
+		case apiErr.StatusCode >= 500:
+			// post đã retry; thử model khác, không cần tạm bỏ qua model này.
+		default:
+			return nil, nil, err
+		}
+		lastErr = fmt.Errorf("model %s: %w", model, err)
+		if !last {
+			g.log.WarnContext(ctx, "gemini: falling back to next chat model", "model", model, "next", models[i+1], "err", err)
+		}
+	}
+	return nil, nil, lastErr
+}
+
+// availableChatModels trả các model chưa bị tạm bỏ qua, giữ thứ tự. Nếu tất
+// cả đều đang bị bỏ qua thì trả cả danh sách: thử lại còn hơn báo lỗi ngay.
+func (g *GeminiProvider) availableChatModels() []string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	now := g.now()
+	var out []string
+	for _, m := range g.chatModels {
+		if now.After(g.cooldown[m]) {
+			out = append(out, m)
+		}
+	}
+	if len(out) == 0 {
+		return g.chatModels
+	}
+	return out
+}
+
+func (g *GeminiProvider) coolDown(model string, d time.Duration) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.cooldown[model] = g.now().Add(d)
+}
+
 type geminiErrorBody struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
@@ -246,8 +328,11 @@ type geminiErrorBody struct {
 // có header. Thành công thì trả response đang mở
 // cùng hàm huỷ timeout của lần gọi đó; người gọi đóng body rồi gọi cancel.
 //
+// waitOnQuota=false thì gặp 429 trả lỗi ngay thay vì chờ, để người gọi đổi
+// sang model khác.
+//
 // API key đi qua header thay vì query string để không lộ trong log và lỗi.
-func (g *GeminiProvider) post(ctx context.Context, path string, body []byte) (*http.Response, context.CancelFunc, error) {
+func (g *GeminiProvider) post(ctx context.Context, path string, body []byte, waitOnQuota bool) (*http.Response, context.CancelFunc, error) {
 	for attempt := 0; ; attempt++ {
 		actx, cancel := context.WithTimeout(ctx, g.timeout)
 		req, err := http.NewRequestWithContext(actx, http.MethodPost, g.baseURL+path, bytes.NewReader(body))
@@ -277,7 +362,8 @@ func (g *GeminiProvider) post(ctx context.Context, path string, body []byte) (*h
 			apiErr := readAPIError(resp)
 			resp.Body.Close()
 			cancel()
-			retryable := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500
+			quota := resp.StatusCode == http.StatusTooManyRequests
+			retryable := (quota && waitOnQuota) || resp.StatusCode >= 500
 			// Server đòi chờ quá lâu (quota theo ngày đòi hàng giờ): chờ cũng vô ích.
 			if !retryable || attempt >= g.maxRetries || apiErr.RetryDelay > geminiMaxServerDelay {
 				return nil, nil, apiErr

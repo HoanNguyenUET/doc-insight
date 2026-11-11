@@ -126,7 +126,7 @@ func run(ctx context.Context) error {
 // giá trị và LLM_API_KEY).
 func newLLMProvider(cfg config.Config) service.LLMProvider {
 	if cfg.LLMProvider == "gemini" {
-		return llm.NewGeminiProvider(cfg.LLMAPIKey, cfg.LLMEmbedModel, cfg.LLMChatModel)
+		return llm.NewGeminiProvider(cfg.LLMAPIKey, cfg.LLMEmbedModel, cfg.LLMChatModels)
 	}
 	return llm.NewMockProvider()
 }

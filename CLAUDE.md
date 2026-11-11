@@ -111,7 +111,7 @@ Chưa có: Makefile (`make migrate`, `make seed`), Dockerfile cho `web/`.
 | `LLM_PROVIDER` | `mock` hoặc `gemini`, mặc định `mock` |
 | `LLM_API_KEY` | Gemini API key, bắt buộc khi `LLM_PROVIDER=gemini` |
 | `LLM_EMBED_MODEL` | Model embedding của Gemini, mặc định `gemini-embedding-001` (phải ra được 768 chiều) |
-| `LLM_CHAT_MODEL` | Model trả lời của Gemini, mặc định `gemini-3.5-flash` |
+| `LLM_CHAT_MODEL` | Model trả lời của Gemini, danh sách phân tách bằng dấu phẩy, thử lần lượt khi model trước hết quota (429), không còn (404) hay lỗi 5xx. Mặc định `gemini-3.5-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite` |
 | `ALLOWED_ORIGINS` | CORS, phân tách bằng dấu phẩy, mặc định `http://localhost:3000`; `*` là mọi origin |
 | `VITE_API_URL` | (web) Địa chỉ API, mặc định `http://localhost:8080`. Nhúng vào bundle lúc build; xem `web/.env.example` |
 

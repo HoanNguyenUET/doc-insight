@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ func newTestGemini(t *testing.T, h http.HandlerFunc) *GeminiProvider {
 	t.Helper()
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
-	g := NewGeminiProvider("test-key", "", "")
+	g := NewGeminiProvider("test-key", "", nil)
 	g.baseURL = srv.URL
 	g.backoff = time.Millisecond
 	g.log = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -356,7 +357,7 @@ func TestReadAPIErrorRetryDelay(t *testing.T) {
 }
 
 func TestBackoffFor(t *testing.T) {
-	g := NewGeminiProvider("k", "", "")
+	g := NewGeminiProvider("k", "", nil)
 	tests := []struct {
 		name        string
 		attempt     int
@@ -489,5 +490,107 @@ func TestGeminiDoesNotRetryLongRetryInfo(t *testing.T) {
 	}
 	if n := attempts.Load(); n != 1 {
 		t.Errorf("attempts = %d, want 1", n)
+	}
+}
+
+// fallbackServer trả status/body cố định theo model trong URL; model không có
+// trong map thì stream "từ <model>".
+func fallbackServer(t *testing.T, fail map[string]func(w http.ResponseWriter), calls *[]string) *GeminiProvider {
+	t.Helper()
+	var mu sync.Mutex
+	g := newTestGemini(t, func(w http.ResponseWriter, r *http.Request) {
+		model := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/models/"), ":streamGenerateContent")
+		mu.Lock()
+		*calls = append(*calls, model)
+		mu.Unlock()
+		if f, ok := fail[model]; ok {
+			f(w)
+			return
+		}
+		io.WriteString(w, sse(`{"candidates":[{"content":{"parts":[{"text":"từ `+model+`"}]}}]}`))
+	})
+	g.chatModels = []string{"a", "b", "c"}
+	return g
+}
+
+func status(code int, body string) func(w http.ResponseWriter) {
+	return func(w http.ResponseWriter) {
+		w.WriteHeader(code)
+		io.WriteString(w, body)
+	}
+}
+
+func TestGeminiStreamFallback(t *testing.T) {
+	daily := status(http.StatusTooManyRequests, quotaBody("72387s"))
+	tests := []struct {
+		name       string
+		fail       map[string]func(w http.ResponseWriter)
+		wantText   string
+		wantCalls  string
+		wantStatus int // 0 = thành công
+	}{
+		{"first model ok", nil, "từ a", "[a]", 0},
+		{"daily quota falls back", map[string]func(http.ResponseWriter){"a": daily}, "từ b", "[a b]", 0},
+		// Còn model khác thì không chờ quota theo phút, chuyển ngay.
+		{"per-minute quota falls back without waiting", map[string]func(http.ResponseWriter){
+			"a": status(http.StatusTooManyRequests, quotaBody("50s")),
+		}, "từ b", "[a b]", 0},
+		{"model gone falls back", map[string]func(http.ResponseWriter){"a": status(http.StatusNotFound, `{"error":{"code":404,"message":"not found"}}`)}, "từ b", "[a b]", 0},
+		{"two models down", map[string]func(http.ResponseWriter){"a": daily, "b": daily}, "từ c", "[a b c]", 0},
+		{"bad request does not fall back", map[string]func(http.ResponseWriter){
+			"a": status(http.StatusBadRequest, `{"error":{"code":400,"message":"sai"}}`),
+		}, "", "[a]", http.StatusBadRequest},
+		{"all exhausted", map[string]func(http.ResponseWriter){"a": daily, "b": daily, "c": daily}, "", "[a b c]", http.StatusTooManyRequests},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var calls []string
+			g := fallbackServer(t, tt.fail, &calls)
+			out := make(chan string, 10)
+			start := time.Now()
+			err := g.Stream(context.Background(), "prompt", out)
+			close(out)
+			var text string
+			for s := range out {
+				text += s
+			}
+			if d := time.Since(start); d > time.Second {
+				t.Errorf("took %v, must not wait on quota while another model is left", d)
+			}
+			if text != tt.wantText || fmt.Sprint(calls) != tt.wantCalls {
+				t.Errorf("text = %q calls = %v, want %q %s", text, calls, tt.wantText, tt.wantCalls)
+			}
+			var apiErr *APIError
+			switch {
+			case tt.wantStatus == 0 && err != nil:
+				t.Errorf("err = %v", err)
+			case tt.wantStatus != 0 && (!errors.As(err, &apiErr) || apiErr.StatusCode != tt.wantStatus):
+				t.Errorf("err = %v, want APIError %d", err, tt.wantStatus)
+			}
+		})
+	}
+}
+
+// Model hết quota ngày được bỏ qua ở các câu hỏi sau, không tốn thêm request.
+func TestGeminiStreamSkipsExhaustedModel(t *testing.T) {
+	var calls []string
+	g := fallbackServer(t, map[string]func(w http.ResponseWriter){
+		"a": status(http.StatusTooManyRequests, quotaBody("72387s")),
+	}, &calls)
+	for range 2 {
+		if err := g.Stream(context.Background(), "prompt", make(chan string, 10)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if fmt.Sprint(calls) != "[a b b]" {
+		t.Errorf("calls = %v, want [a b b]", calls)
+	}
+
+	// Hết thời gian chờ thì thử lại model đầu.
+	g.now = func() time.Time { return time.Now().Add(73000 * time.Second) }
+	calls = nil
+	g.Stream(context.Background(), "prompt", make(chan string, 10))
+	if fmt.Sprint(calls) != "[a b]" {
+		t.Errorf("after cooldown calls = %v, want [a b]", calls)
 	}
 }

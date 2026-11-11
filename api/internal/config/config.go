@@ -19,10 +19,11 @@ type Config struct {
 	LogLevel    slog.Level
 	LLMProvider string
 	LLMAPIKey   string
-	// Model của Gemini (LLM_EMBED_MODEL, LLM_CHAT_MODEL); rỗng = mặc định
-	// của package llm.
+	// Model của Gemini; rỗng = mặc định của package llm. LLM_CHAT_MODEL là
+	// danh sách phân tách bằng dấu phẩy, thử lần lượt khi model trước hết
+	// quota.
 	LLMEmbedModel string
-	LLMChatModel  string
+	LLMChatModels []string
 	// StorageDir chứa file PDF đã tải lên (STORAGE_DIR).
 	StorageDir string
 	// AllowedOrigins cho CORS, từ ALLOWED_ORIGINS phân tách bằng dấu phẩy.
@@ -41,7 +42,7 @@ func Load() (Config, error) {
 		LLMProvider:   strings.ToLower(getenv("LLM_PROVIDER", "mock")),
 		LLMAPIKey:     os.Getenv("LLM_API_KEY"),
 		LLMEmbedModel: os.Getenv("LLM_EMBED_MODEL"),
-		LLMChatModel:  os.Getenv("LLM_CHAT_MODEL"),
+		LLMChatModels: splitList(os.Getenv("LLM_CHAT_MODEL")),
 		StorageDir:    getenv("STORAGE_DIR", "storage"),
 	}
 
@@ -115,6 +116,17 @@ func parseOrigins(v string) ([]string, error) {
 		errs = append(errs, errors.New("ALLOWED_ORIGINS rỗng"))
 	}
 	return out, errors.Join(errs...)
+}
+
+// splitList tách chuỗi phân tách bằng dấu phẩy, bỏ khoảng trắng và phần rỗng.
+func splitList(v string) []string {
+	var out []string
+	for _, s := range strings.Split(v, ",") {
+		if s = strings.TrimSpace(s); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func getenv(key, def string) string {
