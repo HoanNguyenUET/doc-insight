@@ -2,151 +2,132 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import { useOpenDocument } from "@/components/documents/use-open-document";
-import { AskIcon, ChevronIcon, DocsIcon, IndexIcon, UploadIcon } from "@/components/icons";
+import { DocsIcon, FileIcon, PlusIcon, SearchIcon } from "@/components/icons";
+import { Button } from "@/components/ui/button";
 import type { Document } from "@/lib/api";
-import { useAskStore } from "@/lib/ask-store";
-import { displayName, statusTone, toneLabel } from "@/lib/format";
+import { displayName, statusTone } from "@/lib/format";
 import { useDocuments } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
-type Item = { label: string; href: string | null; active: boolean; icon: typeof DocsIcon };
-
-const ITEM =
-  "flex w-full items-center gap-[11px] rounded-[7px] px-2.5 py-[9px] text-left text-[14.5px] text-ink-2 transition-colors";
-
-// Thanh điều hướng bên trái. "Tài liệu" mở ra danh sách tài liệu để chuyển
-// nhanh giữa các tài liệu. "Hỏi đáp" và "Nội dung" trỏ tới tài liệu đang
-// mở, hoặc tài liệu của hội thoại gần nhất khi đang ở màn khác.
+// Thanh bên trái: tải lên, tìm và chuyển nhanh giữa các tài liệu. Hỏi đáp và
+// Nội dung là tab trong màn của từng tài liệu, không nằm ở đây.
 export function Rail() {
   const { pathname } = useLocation();
-  const fromPath = pathname.match(/^\/documents\/([^/]+)/)?.[1];
-  const routeDoc = fromPath && fromPath !== "upload" ? fromPath : undefined;
-  const lastDoc = useAskStore((s) => s.conversations.find((c) => c.id === s.activeConversation)?.docId);
-  const docId = routeDoc ?? lastDoc;
-  const [listOpen, setListOpen] = useState(true);
-  const docsActive = pathname === "/documents";
-
-  const items: Item[] = [
-    {
-      label: "Hỏi đáp",
-      href: docId ? `/documents/${docId}` : null,
-      active: !!routeDoc && pathname === `/documents/${routeDoc}`,
-      icon: AskIcon,
-    },
-    { label: "Tải lên", href: "/documents/upload", active: pathname === "/documents/upload", icon: UploadIcon },
-    {
-      label: "Nội dung",
-      href: docId ? `/documents/${docId}/content` : null,
-      active: pathname.endsWith("/content"),
-      icon: IndexIcon,
-    },
-  ];
+  const activeId = pathname.match(/^\/documents\/([^/]+)/)?.[1];
+  const [query, setQuery] = useState("");
 
   return (
-    <aside className="flex h-screen w-[232px] flex-none flex-col border-r border-rule bg-paper">
-      <div className="flex items-baseline gap-[9px] px-[22px] pt-[26px] pb-[22px]">
-        <b className="text-[19px] font-semibold tracking-[-0.02em]">Doc Insight</b>
-        <span className="font-mono text-[10px] tracking-[0.04em] text-ink-3">v{__APP_VERSION__}</span>
+    <aside className="flex h-screen w-[264px] flex-none flex-col border-r border-rule bg-paper">
+      <div className="flex items-baseline gap-2 px-5 pt-6 pb-5">
+        <Link to="/documents" className="text-[18px] font-semibold tracking-[-0.02em]">
+          Doc Insight
+        </Link>
+        <span className="font-mono text-[10px] text-ink-3">v{__APP_VERSION__}</span>
       </div>
-      <nav className="flex min-h-0 flex-1 flex-col gap-px px-3 pb-4">
-        {/* Một hàng: link "Tài liệu" và nút thu gọn nằm chung nền khi được chọn. */}
-        <div
+
+      <div className="flex flex-col gap-2.5 px-3">
+        <Button asChild className="h-10 justify-start gap-2 rounded-[9px] px-3.5">
+          <Link to="/documents/upload">
+            <PlusIcon className="size-4 stroke-2" />
+            Tải tài liệu lên
+          </Link>
+        </Button>
+        <div className="relative">
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-[15px] -translate-y-1/2 stroke-[1.8] text-ink-3" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Tìm tài liệu"
+            aria-label="Tìm tài liệu"
+            className="h-9 w-full rounded-[9px] border border-transparent bg-field pr-3 pl-9 text-[13.5px] outline-none placeholder:text-ink-3 focus:border-rule focus:bg-white"
+          />
+        </div>
+        <Link
+          to="/documents"
+          aria-current={pathname === "/documents" ? "page" : undefined}
           className={cn(
-            "flex items-center rounded-[7px] transition-colors",
-            docsActive ? "bg-blueprint text-white" : "text-ink-2 hover:bg-field hover:text-ink",
+            "flex items-center gap-2.5 rounded-[8px] px-3 py-2 text-[14px] text-ink-2 transition-colors hover:bg-field hover:text-ink",
+            pathname === "/documents" && "bg-field font-medium text-ink",
           )}
         >
-          <Link
-            to="/documents"
-            onClick={() => setListOpen(true)}
-            className={cn(ITEM, "flex-1 text-inherit", docsActive && "font-medium")}
-            aria-current={docsActive ? "page" : undefined}
-          >
-            <DocsIcon className="size-[17px] flex-none stroke-[1.6]" />
-            Tài liệu
-          </Link>
-          <button
-            type="button"
-            onClick={() => setListOpen((o) => !o)}
-            aria-expanded={listOpen}
-            aria-label={listOpen ? "Thu gọn danh sách tài liệu" : "Mở danh sách tài liệu"}
-            className={cn(
-              "mr-1 grid size-7 flex-none place-items-center rounded-[6px]",
-              docsActive ? "text-white/80 hover:bg-white/15" : "text-ink-3 hover:bg-paper",
-            )}
-          >
-            <ChevronIcon className={cn("size-4 stroke-[1.8] transition-transform", listOpen && "rotate-90")} />
-          </button>
-        </div>
-        {listOpen && <DocumentList activeId={routeDoc} />}
+          <DocsIcon className="size-4 stroke-[1.7]" />
+          Tất cả tài liệu
+        </Link>
+      </div>
 
-        {items.map(({ label, href, active, icon: Ico }) => {
-          const cls = cn(ITEM, active ? "bg-blueprint font-medium text-white" : "hover:bg-field hover:text-ink");
-          const icon = <Ico className="size-[17px] flex-none stroke-[1.6]" />;
-          return href ? (
-            <Link key={label} to={href} className={cls} aria-current={active ? "page" : undefined}>
-              {icon}
-              {label}
-            </Link>
-          ) : (
-            <span
-              key={label}
-              className={cn(cls, "cursor-not-allowed opacity-50 hover:bg-transparent hover:text-ink-2")}
-              title="Mở một tài liệu trước"
-              aria-disabled
-            >
-              {icon}
-              {label}
-            </span>
-          );
-        })}
-      </nav>
+      <DocumentList activeId={activeId} query={query} />
     </aside>
   );
 }
 
-const DOT = { ready: "bg-ok", proc: "animate-blip bg-warn", err: "bg-bad" } as const;
-
-// Danh sách tài liệu lồng dưới mục "Tài liệu"; dài thì cuộn trong khung.
-function DocumentList({ activeId }: { activeId: string | undefined }) {
+function DocumentList({ activeId, query }: { activeId: string | undefined; query: string }) {
   const { data: docs, isPending, isError } = useDocuments();
   const openDocument = useOpenDocument();
-
-  if (isPending) return <p className="py-1.5 pl-[38px] text-[13px] text-ink-3">Đang tải…</p>;
-  if (isError) return <p className="py-1.5 pl-[38px] text-[13px] text-bad">Không tải được danh sách</p>;
-  if (docs.length === 0)
-    return (
-      <Link to="/documents/upload" className="py-1.5 pl-[38px] text-[13px] text-blueprint hover:underline">
-        Chưa có tài liệu, tải lên ngay
-      </Link>
-    );
+  const q = query.trim().toLowerCase();
+  const shown = docs?.filter((d) => d.filename.toLowerCase().includes(q));
 
   return (
-    <ul className="mb-1.5 max-h-[45vh] overflow-y-auto border-l border-rule-soft py-0.5 pl-1.5 ml-[18px] [scrollbar-width:thin]">
-      {docs.map((d) => (
-        <DocumentRow key={d.id} doc={d} active={d.id === activeId} onOpen={() => openDocument(d)} />
-      ))}
-    </ul>
+    <div className="mt-5 flex min-h-0 flex-1 flex-col">
+      <div className="px-5 pb-1.5 text-[11px] font-medium tracking-[0.06em] text-ink-3 uppercase">
+        Tài liệu {docs && `· ${docs.length}`}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 [scrollbar-width:thin]">
+        {isPending ? (
+          <p className="px-3 py-2 text-[13px] text-ink-3">Đang tải…</p>
+        ) : isError ? (
+          <p className="px-3 py-2 text-[13px] text-bad">Không tải được danh sách</p>
+        ) : shown!.length === 0 ? (
+          <p className="px-3 py-2 text-[13px] text-ink-3">{q ? "Không có tài liệu khớp." : "Chưa có tài liệu nào."}</p>
+        ) : (
+          <ul className="flex flex-col gap-px">
+            {shown!.map((d) => (
+              <DocumentRow key={d.id} doc={d} active={d.id === activeId} onOpen={() => openDocument(d)} />
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }
 
-function DocumentRow({ doc, active, onOpen }: { doc: Document; active: boolean; onOpen: () => void }) {
+// Dòng phụ dưới tên: số trang khi sẵn sàng, còn lại là trạng thái cần chú ý.
+function rowMeta(doc: Document): { text: string; tone?: "warn" | "bad" } {
   const tone = statusTone(doc.status);
+  if (tone === "proc") return { text: `Đang xử lý ${doc.progress}%`, tone: "warn" };
+  if (tone === "err") return { text: "Không đọc được", tone: "bad" };
+  if (doc.needs_reprocess) return { text: "Cần xử lý lại", tone: "warn" };
+  return { text: doc.page_count != null ? `${doc.page_count} trang` : "Sẵn sàng" };
+}
+
+function DocumentRow({ doc, active, onOpen }: { doc: Document; active: boolean; onOpen: () => void }) {
+  const meta = rowMeta(doc);
   return (
     <li>
       <button
         type="button"
         onClick={onOpen}
-        title={`${doc.filename} · ${toneLabel[tone]}`}
+        title={doc.filename}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex w-full items-center gap-2 rounded-[6px] px-2 py-[6px] text-left text-[13.5px] text-ink-2 hover:bg-field hover:text-ink",
-          active && "bg-blueprint-soft font-medium text-blueprint hover:bg-blueprint-soft hover:text-blueprint",
-          tone !== "ready" && "text-ink-3",
+          "relative flex w-full items-center gap-2.5 rounded-[8px] px-3 py-2 text-left transition-colors hover:bg-field",
+          active && "bg-blueprint-soft hover:bg-blueprint-soft",
         )}
       >
-        <span className={cn("size-[7px] flex-none rounded-full", DOT[tone])} aria-hidden />
-        <span className="truncate">{displayName(doc.filename)}</span>
+        {active && <span className="absolute top-2 bottom-2 left-0 w-[3px] rounded-full bg-blueprint" aria-hidden />}
+        <FileIcon className={cn("size-[18px] flex-none stroke-[1.5]", active ? "text-blueprint" : "text-ink-3")} />
+        <span className="min-w-0">
+          <span className={cn("block truncate text-[13.5px]", active ? "font-medium text-blueprint" : "text-ink")}>
+            {displayName(doc.filename)}
+          </span>
+          <span
+            className={cn(
+              "block text-[11.5px]",
+              meta.tone === "warn" ? "text-warn" : meta.tone === "bad" ? "text-bad" : "text-ink-3",
+            )}
+          >
+            {meta.text}
+          </span>
+        </span>
       </button>
     </li>
   );

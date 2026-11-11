@@ -16,9 +16,9 @@ export const toneLabel: Record<StatusTone, string> = {
 
 export const stageLabel: Record<DocumentStatus, string> = {
   pending: "Đang chờ",
-  extracting: "Đang trích văn bản",
-  chunking: "Đang cắt đoạn",
-  embedding: "Đang tạo embedding",
+  extracting: "Đang đọc chữ",
+  chunking: "Đang chia đoạn",
+  embedding: "Đang lập chỉ mục",
   ready: "Xong",
   failed: "Lỗi",
 };

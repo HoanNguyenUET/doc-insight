@@ -20,6 +20,7 @@ export const IndexIcon = (p: IconProps) => <Icon d="M4 5h16M4 10h16M4 15h10M4 20
 export const PlusIcon = (p: IconProps) => <Icon d="M12 5v14M5 12h14" {...p} />;
 export const TrashIcon = (p: IconProps) => <Icon d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13" {...p} />;
 export const CloseIcon = (p: IconProps) => <Icon d="M6 6l12 12M18 6L6 18" {...p} />;
+export const FileIcon = (p: IconProps) => <Icon d="M7 3h7l5 5v12a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1zM14 3v5h5" {...p} />;
 export const SparkIcon = (p: IconProps) => (
   <Icon d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z" {...p} />
 );

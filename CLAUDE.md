@@ -40,6 +40,9 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
   Bố cục, màu, chữ và luồng tương tác của `web/` bám theo file này. Khác
   mockup: cột trái vẽ trang PDF thật bằng pdf.js (`react-pdf`) từ
   `GET /api/documents/{id}/file`, không phải văn bản trích đặt trên tờ giấy giả.
+  Điều hướng cũng khác mockup: thanh trái là nút tải lên + ô tìm + danh sách
+  tài liệu; mỗi tài liệu có khung chung `routes/document-layout.tsx` với tab
+  Hỏi đáp | Nội dung, và các tab con lấy tài liệu qua `useCurrentDocument`.
 
 - Dữ liệu từ server → TanStack Query. Query key dạng mảng:
   `['documents']`, `['document', id]`, `['pages', id, pageNo]`,

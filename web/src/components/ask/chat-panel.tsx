@@ -3,20 +3,20 @@ import { useShallow } from "zustand/react/shallow";
 
 import { AnswerText } from "@/components/ask/answer-text";
 import { Composer } from "@/components/ask/composer";
-import { AssistantMessage, Thinking, UserBubble } from "@/components/ask/messages";
+import { AssistantMessage, Thinking, UserBubble, Welcome } from "@/components/ask/messages";
+import { PlusIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAnswerStream } from "@/hooks/use-answer-stream";
 import type { Document } from "@/lib/api";
 import { activeConversationFor, newId, useAskStore, type Message } from "@/lib/ask-store";
-import { displayName } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 const NO_MESSAGES: Message[] = [];
 
 // Câu hỏi đang chờ trả lời: thuộc hội thoại nào và id của tin trả lời.
 type Pending = { conversationId: string; messageId: string; question: string };
 
-// Cột phải: tab hội thoại, khung chat và ô nhập.
+// Cột phải: chọn cuộc hỏi đáp, khung chat và ô nhập.
 export function ChatPanel({ doc }: { doc: Document }) {
   const conversations = useAskStore(useShallow((s) => s.conversations.filter((c) => c.docId === doc.id)));
   const active = useAskStore((s) => activeConversationFor(s, doc.id));
@@ -68,59 +68,52 @@ export function ChatPanel({ doc }: { doc: Document }) {
     setPending({ conversationId, messageId: newId(), question });
   };
 
+  const NEW = "__new__";
   return (
     <section className="flex min-w-0 flex-[1_1_44%] flex-col bg-paper">
-      <div className="flex h-[50px] flex-none items-center justify-between gap-3 border-b border-rule-soft px-[18px]">
-        <h2 className="truncate text-[14.5px] font-semibold">{displayName(doc.filename)}</h2>
-        {conversations.length > 0 && (
-          <span className="text-[12.5px] whitespace-nowrap text-ink-3">{conversations.length} hội thoại</span>
-        )}
-      </div>
-
-      <div
-        role="tablist"
-        className="flex flex-none items-stretch gap-0.5 overflow-x-auto border-b border-rule px-3 [scrollbar-width:none]"
-      >
-        {conversations.map((c) => (
-          <button
-            key={c.id}
-            role="tab"
-            aria-selected={c.id === active?.id}
-            onClick={() => selectConversation(c.id)}
-            className={cn(
-              "-mb-px rounded-t-md border-b-2 border-transparent px-[13px] pt-[9px] pb-2 text-[13.5px] whitespace-nowrap text-ink-2 hover:bg-field hover:text-ink",
-              c.id === active?.id && "border-blueprint font-medium text-blueprint",
-            )}
+      <div className="flex h-[52px] flex-none items-center gap-2 border-b border-rule-soft px-4">
+        <Select
+          value={active?.id ?? NEW}
+          onValueChange={(v) => (v === NEW ? newConversation(doc.id) : selectConversation(v))}
+        >
+          <SelectTrigger
+            aria-label="Chọn cuộc hỏi đáp"
+            className="h-8 max-w-[70%] min-w-0 border-transparent bg-transparent px-2 text-[13.5px] font-medium shadow-none hover:bg-field"
           >
-            {c.title}
-          </button>
-        ))}
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {!active && <SelectItem value={NEW}>Cuộc hỏi đáp mới</SelectItem>}
+            {conversations.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
           onClick={() => newConversation(doc.id)}
-          title="Hội thoại mới"
-          aria-label="Hội thoại mới"
-          className="size-8 self-center text-base text-ink-3 hover:bg-field"
+          disabled={!!pending}
+          className="ml-auto h-8 gap-1.5 px-2.5 text-[13px] text-ink-2 hover:bg-field"
         >
-          +
+          <PlusIcon className="size-3.5 stroke-2" />
+          Cuộc mới
         </Button>
       </div>
 
-      <div ref={threadRef} className="flex flex-1 flex-col gap-[18px] overflow-y-auto px-5 py-[22px]">
+      <div ref={threadRef} className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-6">
         {messages.length === 0 && !live ? (
-          <div className="m-auto max-w-[34ch] px-5 py-10 text-center text-sm leading-relaxed text-ink-3">
-            Chưa có câu hỏi nào cho tài liệu này. Gõ câu hỏi bên dưới, hoặc bôi đen một đoạn trong tài liệu để hỏi về
-            đoạn đó.
-          </div>
+          <Welcome onAsk={(q) => send(q, null)} />
         ) : (
           <>
             {messages.map((m) => (m.role === "user" ? <UserBubble key={m.id} message={m} /> : <AssistantMessage key={m.id} message={m} />))}
             {live &&
               (stream.text === "" && (stream.status === "connecting" || stream.status === "streaming") ? (
-                <Thinking key={live.messageId} status={stream.status} found={stream.sources.length} />
+                <Thinking />
               ) : (
-                <div className="max-w-[93%] self-start text-[14.5px] leading-[1.68]">
+                <div className="max-w-[93%] self-start text-[14.5px] leading-[1.7]">
                   <AnswerText messageId={live.messageId} text={stream.text} sources={stream.sources} streaming />
                 </div>
               ))}

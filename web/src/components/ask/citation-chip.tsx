@@ -14,22 +14,21 @@ export function CitationChip({ messageId, n, source }: { messageId: string; n: n
     <Badge
       asChild
       className={cn(
-        "mx-px cursor-pointer gap-[5px] rounded-[5px] py-px pr-[7px] pl-[5px] align-baseline text-[12.5px] transition-colors",
+        "mx-0.5 cursor-pointer gap-1 rounded-full px-[7px] py-0 align-[1px] text-[11.5px] leading-[18px] font-normal transition-colors",
         active ? "bg-marker-soft text-marker hover:bg-marker-soft" : "bg-blueprint-soft text-blueprint hover:bg-[#DCE5F3]",
       )}
     >
       <button
         type="button"
-        title={source.preview}
+        // Chi tiết (số đoạn, câu đầu của đoạn) để trong tooltip cho chip gọn.
+        title={`Trang ${source.page}${source.chunk != null ? ` · đoạn ${source.chunk + 1}` : ""}\n${source.preview}`}
+        aria-label={`Nguồn ${n}: trang ${source.page}`}
         onClick={() =>
           openCitation({ messageId, ref: n, page: source.page, charStart: source.char_start, charEnd: source.char_end })
         }
       >
-        <b className="grid size-3.5 place-items-center rounded-[3px] bg-current font-mono text-[10px]">
-          <span className={active ? "text-marker-soft" : "text-blueprint-soft"}>{n}</span>
-        </b>
-        Trang {source.page}
-        {source.chunk != null && <span className="opacity-70">· đoạn {source.chunk + 1}</span>}
+        <b className="font-semibold">{n}</b>
+        <span className="opacity-75">tr.{source.page}</span>
       </button>
     </Badge>
   );

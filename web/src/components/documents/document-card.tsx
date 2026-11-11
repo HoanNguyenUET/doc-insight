@@ -3,7 +3,7 @@ import { toast } from "sonner";
 
 import { StatusTag } from "@/components/documents/status-tag";
 import { useOpenDocument } from "@/components/documents/use-open-document";
-import { IndexIcon, TrashIcon } from "@/components/icons";
+import { FileIcon, IndexIcon, TrashIcon } from "@/components/icons";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,73 +22,80 @@ import { displayName, formatBytes, formatDate, statusTone } from "@/lib/format";
 import { useDeleteDocument } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
-// Cả thẻ bấm được, mở tài liệu qua useOpenDocument.
+// Cả thẻ bấm được, mở tài liệu qua useOpenDocument. Nhãn trạng thái chỉ hiện
+// khi cần chú ý (đang xử lý, lỗi, cần xử lý lại); nút thao tác hiện khi rê chuột.
 export function DocumentCard({ doc }: { doc: Document }) {
   const openDocument = useOpenDocument();
   const tone = statusTone(doc.status);
   const ready = tone === "ready";
   const convCount = useAskStore((s) => s.conversations.filter((c) => c.docId === doc.id).length);
 
-  const open = () => openDocument(doc);
-
-  const meta = [
-    formatBytes(doc.size_bytes),
-    doc.page_count != null && `${doc.page_count} trang`,
-    formatDate(doc.created_at),
-  ].filter(Boolean);
+  const meta = [doc.page_count != null && `${doc.page_count} trang`, formatBytes(doc.size_bytes), formatDate(doc.created_at)].filter(
+    Boolean,
+  );
 
   return (
     <div
       role="link"
       tabIndex={0}
       aria-disabled={!ready}
-      onClick={open}
+      onClick={() => openDocument(doc)}
       onKeyDown={(e) => {
         if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
           e.preventDefault();
-          open();
+          openDocument(doc);
         }
       }}
       className={cn(
-        "group flex min-h-[132px] w-full flex-col bg-paper px-[21px] pt-5 pb-[17px] text-left transition-colors",
-        ready ? "cursor-pointer hover:bg-white" : "cursor-default",
+        "group flex flex-col rounded-[12px] border border-rule bg-paper p-4 text-left transition-[border-color,box-shadow]",
+        ready ? "cursor-pointer hover:border-ink-3/40 hover:shadow-[0_6px_20px_rgba(26,28,31,.07)]" : "cursor-default",
       )}
     >
-      <div className="mb-[11px] flex items-start justify-between gap-3">
-        <h3
-          className={cn(
-            "font-serif text-[17.5px] leading-[1.3] font-semibold tracking-[-0.005em] break-words transition-colors",
-            ready && "group-hover:text-blueprint",
-          )}
-        >
-          {displayName(doc.filename)}
-        </h3>
-        <StatusTag status={doc.status} />
+      <div className="flex items-start gap-3">
+        <span className="grid size-10 flex-none place-items-center rounded-[9px] bg-field text-ink-3 transition-colors group-hover:text-blueprint">
+          <FileIcon className="size-5 stroke-[1.5]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3
+            className={cn(
+              "line-clamp-2 font-serif text-[16px] leading-snug font-semibold break-words transition-colors",
+              ready && "group-hover:text-blueprint",
+            )}
+          >
+            {displayName(doc.filename)}
+          </h3>
+          <p className="mt-0.5 text-[12.5px] text-ink-3">{meta.join(" · ")}</p>
+        </div>
+        {!ready && <StatusTag status={doc.status} />}
       </div>
-      <div className="mb-3.5 font-mono text-[11.5px] tracking-[-0.01em] text-ink-3">{meta.join(" · ")}</div>
+
       {tone === "proc" && (
-        <div className="mb-3 h-[3px] overflow-hidden rounded-sm bg-rule-soft">
-          <i className="block h-full rounded-sm bg-marker transition-[width]" style={{ width: `${doc.progress}%` }} />
+        <div className="mt-3.5 h-1 overflow-hidden rounded-full bg-rule-soft">
+          <i className="block h-full rounded-full bg-marker transition-[width]" style={{ width: `${doc.progress}%` }} />
         </div>
       )}
-      <div className="mt-auto flex items-center justify-between border-t border-rule-soft pt-[13px]">
-        <span className={cn("text-[13px]", doc.needs_reprocess ? "text-warn" : "text-ink-3")}>
+
+      <div className="mt-4 flex min-h-[26px] items-center justify-between gap-2">
+        <span className={cn("text-[12.5px]", doc.needs_reprocess ? "text-warn" : "text-ink-3")}>
           {!ready
-            ? " "
+            ? ""
             : doc.needs_reprocess
               ? "Cần xử lý lại để hỏi đáp chính xác"
               : convCount
-                ? `${convCount} hội thoại`
+                ? `${convCount} cuộc hỏi đáp`
                 : "Chưa có câu hỏi nào"}
         </span>
-        <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
-          {ready ? (
+        <div
+          className="flex gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {ready && (
             <Button asChild variant="ghost" size="icon" className="size-[26px] text-ink-3 hover:bg-field">
               <Link to={`/documents/${doc.id}/content`} aria-label="Xem nội dung" title="Xem nội dung tài liệu">
                 <IndexIcon className="size-4 stroke-[1.7]" />
               </Link>
             </Button>
-          ) : null}
+          )}
           <DeleteButton doc={doc} />
         </div>
       </div>

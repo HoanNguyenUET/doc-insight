@@ -15,6 +15,7 @@ import { RouterProvider } from "react-router/dom";
 
 import { Providers } from "@/providers";
 import { ContentPage } from "@/routes/content";
+import { DocumentLayout } from "@/routes/document-layout";
 import { DocumentsPage } from "@/routes/documents";
 import { RootLayout } from "@/routes/root-layout";
 import { UploadPage } from "@/routes/upload";
@@ -32,15 +33,21 @@ const router = createBrowserRouter([
       { path: "documents/upload", element: <UploadPage /> },
       {
         path: "documents/:id",
-        element: (
-          <Suspense fallback={<p className="m-auto text-sm text-ink-3">Đang mở tài liệu…</p>}>
-            <AskPage />
-          </Suspense>
-        ),
+        element: <DocumentLayout />,
+        children: [
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<p className="m-auto text-sm text-ink-3">Đang mở tài liệu…</p>}>
+                <AskPage />
+              </Suspense>
+            ),
+          },
+          { path: "content", element: <ContentPage /> },
+          // Đường dẫn cũ của tab Nội dung.
+          { path: "chunks", element: <Navigate to="../content" relative="path" replace /> },
+        ],
       },
-      { path: "documents/:id/content", element: <ContentPage /> },
-      // Đường dẫn cũ của màn này.
-      { path: "documents/:id/chunks", element: <Navigate to="../content" relative="path" replace /> },
       { path: "*", element: <Navigate to="/documents" replace /> },
     ],
   },

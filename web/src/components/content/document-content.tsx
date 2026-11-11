@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 
 import { SearchIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Chunk } from "@/lib/api";
 import { useAskStore } from "@/lib/ask-store";
-import { displayName, formatBytes, processingSeconds } from "@/lib/format";
+import { formatBytes, processingSeconds } from "@/lib/format";
 import { useChunks, useDocument } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
@@ -44,32 +44,6 @@ export function DocumentContent({ id }: { id: string }) {
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <h1 className="text-[25px] leading-tight font-semibold tracking-[-0.02em]">Nội dung tài liệu</h1>
-          <p className="mt-[3px] max-w-[60ch] text-[14.5px] text-ink-2">
-            {doc ? (
-              <>
-                Những gì AI đã đọc được từ <b className="font-medium text-ink">{displayName(doc.filename)}</b>, chia theo
-                từng trang.
-              </>
-            ) : (
-              "Đang tải…"
-            )}
-          </p>
-        </div>
-        <div className="flex gap-[9px]">
-          {ready && (
-            <Button asChild>
-              <Link to={`/documents/${id}`}>Đặt câu hỏi</Link>
-            </Button>
-          )}
-          <Button asChild variant="outline" className="bg-paper">
-            <Link to="/documents">Quay lại</Link>
-          </Button>
-        </div>
-      </div>
-
       {doc && ready && (
         <section className="mb-6 rounded-[12px] border border-rule bg-paper px-5 py-[18px]">
           <h2 className="mb-3.5 text-[15px] font-semibold">AI dùng tài liệu này thế nào?</h2>

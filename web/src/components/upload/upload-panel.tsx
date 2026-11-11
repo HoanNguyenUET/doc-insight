@@ -171,10 +171,10 @@ function QueueRow({ item }: { item: Item }) {
 }
 
 const STEPS: { title: string; desc: string; status: DocumentStatus }[] = [
-  { title: "Nhận file", desc: "Kiểm tra định dạng và lưu trữ", status: "pending" },
-  { title: "Trích xuất văn bản", desc: "Giữ lại số trang và vị trí từng đoạn", status: "extracting" },
-  { title: "Cắt đoạn", desc: "500 token mỗi đoạn, chồng lấn 50", status: "chunking" },
-  { title: "Tạo embedding", desc: "Lưu vector 768 chiều vào pgvector", status: "embedding" },
+  { title: "Nhận file", desc: "Kiểm tra đúng là PDF và lưu lại", status: "pending" },
+  { title: "Đọc chữ", desc: "Lấy chữ của từng trang, nhớ vị trí để trích dẫn", status: "extracting" },
+  { title: "Chia đoạn", desc: "Chia thành các đoạn ngắn khoảng nửa trang", status: "chunking" },
+  { title: "Lập chỉ mục", desc: "Để AI tìm nhanh đoạn liên quan tới câu hỏi", status: "embedding" },
 ];
 const ORDER: DocumentStatus[] = ["pending", "extracting", "chunking", "embedding", "ready"];
 
@@ -187,7 +187,7 @@ function StepsPanel({ item }: { item?: Item }) {
   const failed = !!item?.error || doc?.status === "failed";
 
   return (
-    <Panel title="Các bước xử lý">
+    <Panel title="AI xử lý tài liệu thế nào">
       <ol className="py-1.5">
         {STEPS.map((s, i) => {
           const state = i < current ? "done" : i === current && !failed ? "now" : "todo";

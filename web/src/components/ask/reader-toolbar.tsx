@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 
-// ReaderToolbar: tên file, phóng to/thu nhỏ và lật trang của cột tài liệu.
+// ReaderToolbar: phóng to/thu nhỏ và lật trang của cột tài liệu (tên tài
+// liệu đã ở thanh tiêu đề phía trên).
 export function ReaderToolbar({
-  filename,
   zoomPercent,
   canZoomOut,
   canZoomIn,
@@ -11,7 +11,6 @@ export function ReaderToolbar({
   pageCount,
   onTurn,
 }: {
-  filename: string;
   zoomPercent: number;
   canZoomOut: boolean;
   canZoomIn: boolean;
@@ -21,9 +20,8 @@ export function ReaderToolbar({
   onTurn: (delta: number) => void;
 }) {
   return (
-    <div className="flex h-[50px] flex-none items-center justify-between gap-3.5 border-b border-rule bg-paper px-4">
-      <div className="min-w-0 truncate text-sm font-medium">{filename}</div>
-      <div className="ml-auto flex flex-none items-center gap-px rounded-[7px] bg-field p-0.5">
+    <div className="flex h-[52px] flex-none items-center justify-end gap-3 border-b border-rule-soft bg-paper px-4">
+      <div className="flex flex-none items-center gap-px rounded-[7px] bg-field p-0.5">
         <ToolButton onClick={() => onZoom(-1)} disabled={!canZoomOut} label="Thu nhỏ">
           −
         </ToolButton>

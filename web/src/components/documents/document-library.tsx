@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { useState } from "react";
 
 import { DocumentCard } from "@/components/documents/document-card";
-import { PlusIcon, SearchIcon } from "@/components/icons";
+import { SearchIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -48,19 +48,13 @@ export function DocumentLibrary({ heading }: { heading: React.ReactNode }) {
               <SelectItem value="err">Lỗi</SelectItem>
             </SelectContent>
           </Select>
-          <Button asChild>
-            <Link to="/documents/upload">
-              <PlusIcon className="size-[15px] stroke-2" />
-              Tải lên
-            </Link>
-          </Button>
         </div>
       </div>
 
       {isPending ? (
         <Grid>
           {Array.from({ length: 3 }, (_, i) => (
-            <div key={i} className="flex min-h-[168px] flex-col gap-3 bg-paper px-[21px] pt-5 pb-[17px]">
+            <div key={i} className="flex min-h-[132px] flex-col gap-3 rounded-[12px] border border-rule bg-paper p-4">
               <Skeleton className="h-5 w-2/3" />
               <Skeleton className="h-3 w-1/2" />
             </div>
@@ -97,7 +91,7 @@ export function DocumentLibrary({ heading }: { heading: React.ReactNode }) {
 
 function Grid({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(304px,1fr))] gap-px overflow-hidden rounded-[10px] border border-rule bg-rule">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5">
       {children}
     </div>
   );
@@ -105,6 +99,6 @@ function Grid({ children }: { children: React.ReactNode }) {
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-[10px] border border-rule bg-paper px-6 py-14 text-center text-sm text-ink-3">{children}</div>
+    <div className="rounded-[12px] border border-dashed border-rule bg-paper px-6 py-14 text-center text-sm text-ink-3">{children}</div>
   );
 }

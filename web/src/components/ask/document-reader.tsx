@@ -46,7 +46,6 @@ export function DocumentReader({ doc }: { doc: Document }) {
   return (
     <section className="flex min-w-0 flex-[1_1_56%] flex-col border-r border-rule bg-field">
       <ReaderToolbar
-        filename={doc.filename}
         zoomPercent={ZOOMS[zoom] * 100}
         canZoomOut={zoom > 0}
         canZoomIn={zoom < ZOOMS.length - 1}
