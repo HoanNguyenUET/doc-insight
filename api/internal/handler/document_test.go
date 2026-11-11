@@ -511,3 +511,20 @@ func TestReprocessAndNeedsReprocess(t *testing.T) {
 		})
 	}
 }
+
+// Hợp đồng JSON của tài liệu (frontend và eval dựa vào): đủ và đúng tên trường.
+func TestDocumentJSONFields(t *testing.T) {
+	id := "99999999-9999-9999-9999-999999999999"
+	h := docRouter(&fakeDocService{docs: map[string]repository.Document{id: {ID: id, Status: repository.StatusReady}}})
+	_, got := do(h, httptest.NewRequest(http.MethodGet, "/api/documents/"+id, nil))
+	want := []string{"id", "filename", "size_bytes", "page_count", "chunk_count", "status", "progress", "error",
+		"embed_model", "needs_reprocess", "processing_started_at", "created_at", "updated_at", "processed_at"}
+	if len(got) != len(want) {
+		t.Errorf("fields = %v, want exactly %v", got, want)
+	}
+	for _, k := range want {
+		if _, ok := got[k]; !ok {
+			t.Errorf("missing field %q", k)
+		}
+	}
+}

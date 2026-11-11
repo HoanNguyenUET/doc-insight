@@ -11,19 +11,19 @@ import (
 // Page là văn bản đã chuẩn hoá của một trang. Offset của chunk trên trang
 // này tính theo rune trên Text.
 type Page struct {
-	Number int    `json:"page_number"`
-	Text   string `json:"text"`
+	Number int
+	Text   string
 }
 
 // Chunk là một chunk đã lưu, không kèm embedding.
 type Chunk struct {
-	ID         int64  `json:"id"`
-	Index      int    `json:"index"`
-	PageNumber int    `json:"page_number"`
-	CharStart  int    `json:"char_start"`
-	CharEnd    int    `json:"char_end"`
-	TokenCount *int   `json:"token_count"`
-	Content    string `json:"content"`
+	ID         int64
+	Index      int
+	PageNumber int
+	CharStart  int
+	CharEnd    int
+	TokenCount *int
+	Content    string
 }
 
 // GetPage trả ErrNotFound khi tài liệu không có trang number (kể cả tài liệu

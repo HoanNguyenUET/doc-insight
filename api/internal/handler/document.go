@@ -94,10 +94,11 @@ func (h *DocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	if docs == nil {
-		docs = []service.DocumentView{} // JSON [] thay vì null
+	out := make([]documentResponse, len(docs))
+	for i, d := range docs {
+		out[i] = newDocumentResponse(d)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"documents": docs})
+	writeJSON(w, http.StatusOK, map[string]any{"documents": out})
 }
 
 func (h *DocumentHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -106,7 +107,7 @@ func (h *DocumentHandler) Get(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, doc)
+	writeJSON(w, http.StatusOK, newDocumentResponse(doc))
 }
 
 func (h *DocumentHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -141,7 +142,7 @@ func (h *DocumentHandler) Reprocess(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusAccepted, doc)
+	writeJSON(w, http.StatusAccepted, newDocumentResponse(doc))
 }
 
 func (h *DocumentHandler) Page(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +156,7 @@ func (h *DocumentHandler) Page(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, p)
+	writeJSON(w, http.StatusOK, newPageResponse(p))
 }
 
 // Chunks trả mọi chunk của tài liệu, hoặc của một trang khi có ?page=.
@@ -174,8 +175,5 @@ func (h *DocumentHandler) Chunks(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err)
 		return
 	}
-	if chunks == nil {
-		chunks = []repository.Chunk{} // JSON [] thay vì null
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"chunks": chunks})
+	writeJSON(w, http.StatusOK, map[string]any{"chunks": newChunkResponses(chunks)})
 }

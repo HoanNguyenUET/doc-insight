@@ -47,17 +47,17 @@ type DocumentRepo interface {
 // thì tìm kiếm cho kết quả vô nghĩa và phải xử lý lại.
 type DocumentView struct {
 	repository.Document
-	NeedsReprocess bool `json:"needs_reprocess"`
+	NeedsReprocess bool
 }
 
 // PageView là một trang kèm các chunk nằm trên nó, đủ để trình xem tài liệu
 // tô sáng đoạn nguồn theo char_start/char_end.
 type PageView struct {
-	DocumentID string             `json:"document_id"`
-	PageCount  int                `json:"page_count"`
-	Number     int                `json:"page_number"`
-	Text       string             `json:"text"`
-	Chunks     []repository.Chunk `json:"chunks"`
+	DocumentID string
+	PageCount  int
+	Number     int
+	Text       string
+	Chunks     []repository.Chunk
 }
 
 type JobQueue interface {

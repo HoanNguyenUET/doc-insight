@@ -32,15 +32,15 @@ type AskRepo interface {
 
 // Source là một đoạn nguồn; câu trả lời trích dẫn nó bằng [[N]].
 type Source struct {
-	N       int   `json:"n"`
-	ChunkID int64 `json:"chunk_id"`
+	N       int
+	ChunkID int64
 	// ChunkIndex là thứ tự đoạn trong tài liệu (từ 0).
-	ChunkIndex int     `json:"chunk_index"`
-	Page       int     `json:"page"`
-	CharStart  int     `json:"char_start"`
-	CharEnd    int     `json:"char_end"`
-	Content    string  `json:"content"`
-	Score      float64 `json:"score"`
+	ChunkIndex int
+	Page       int
+	CharStart  int
+	CharEnd    int
+	Content    string
+	Score      float64
 }
 
 // AnswerWriter nhận kết quả của Ask: WriteSources đúng một lần, trước mọi

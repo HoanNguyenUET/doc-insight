@@ -25,22 +25,22 @@ const (
 )
 
 type Document struct {
-	ID         string  `json:"id"`
-	Filename   string  `json:"filename"`
-	SizeBytes  int64   `json:"size_bytes"`
-	PageCount  *int    `json:"page_count"`
-	ChunkCount int     `json:"chunk_count"`
-	Status     string  `json:"status"`
-	Progress   int     `json:"progress"`
-	Error      *string `json:"error"`
+	ID         string
+	Filename   string
+	SizeBytes  int64
+	PageCount  *int
+	ChunkCount int
+	Status     string
+	Progress   int
+	Error      *string
 	// EmbedModel là mô hình embedding đã dùng; nil = chưa rõ (xử lý trước
 	// migration 000004).
-	EmbedModel *string `json:"embed_model"`
+	EmbedModel *string
 	// ProcessingStartedAt là lúc worker bắt đầu lần xử lý gần nhất.
-	ProcessingStartedAt *time.Time `json:"processing_started_at"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
-	ProcessedAt         *time.Time `json:"processed_at"`
+	ProcessingStartedAt *time.Time
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	ProcessedAt         *time.Time
 }
 
 // NewChunk là một chunk chờ lưu. Embedding rỗng được lưu thành NULL.
