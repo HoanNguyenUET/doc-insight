@@ -90,15 +90,13 @@ export function DocumentLibrary({ heading }: { heading: React.ReactNode }) {
 }
 
 function Grid({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5">
-      {children}
-    </div>
-  );
+  return <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5">{children}</div>;
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-[12px] border border-dashed border-rule bg-paper px-6 py-14 text-center text-sm text-ink-3">{children}</div>
+    <div className="rounded-[12px] border border-dashed border-rule bg-paper px-6 py-14 text-center text-sm text-ink-3">
+      {children}
+    </div>
   );
 }

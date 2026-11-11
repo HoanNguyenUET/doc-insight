@@ -7,11 +7,26 @@ const c = (n: number): Part => ({ kind: "cite", n });
 
 describe("parseAnswer", () => {
   it.each([
-    { name: "chữ và trích dẫn", text: "Nghỉ 12 ngày [[1]].", streaming: false, want: [[t("Nghỉ 12 ngày "), c(1), t(".")]] },
+    {
+      name: "chữ và trích dẫn",
+      text: "Nghỉ 12 ngày [[1]].",
+      streaming: false,
+      want: [[t("Nghỉ 12 ngày "), c(1), t(".")]],
+    },
     { name: "nhiều trích dẫn liền nhau", text: "A [[1]][[3]]", streaming: false, want: [[t("A "), c(1), c(3)]] },
-    { name: "tách đoạn theo dòng trống", text: "Một.\n\n\nHai [[2]]", streaming: false, want: [[t("Một.")], [t("Hai "), c(2)]] },
+    {
+      name: "tách đoạn theo dòng trống",
+      text: "Một.\n\n\nHai [[2]]",
+      streaming: false,
+      want: [[t("Một.")], [t("Hai "), c(2)]],
+    },
     { name: "một lần xuống dòng không tách đoạn", text: "Một\nhai", streaming: false, want: [[t("Một\nhai")]] },
-    { name: "đang stream: bỏ trích dẫn viết dở", text: "Câu trả lời [[1", streaming: true, want: [[t("Câu trả lời ")]] },
+    {
+      name: "đang stream: bỏ trích dẫn viết dở",
+      text: "Câu trả lời [[1",
+      streaming: true,
+      want: [[t("Câu trả lời ")]],
+    },
     { name: "xong rồi thì giữ nguyên chữ", text: "Giá [[1", streaming: false, want: [[t("Giá [[1")]] },
     { name: "rỗng", text: "", streaming: false, want: [] },
   ])("$name", ({ text, streaming, want }) => {

@@ -108,7 +108,9 @@ export function ChatPanel({ doc }: { doc: Document }) {
           <Welcome onAsk={(q) => send(q, null)} />
         ) : (
           <>
-            {messages.map((m) => (m.role === "user" ? <UserBubble key={m.id} message={m} /> : <AssistantMessage key={m.id} message={m} />))}
+            {messages.map((m) =>
+              m.role === "user" ? <UserBubble key={m.id} message={m} /> : <AssistantMessage key={m.id} message={m} />,
+            )}
             {live &&
               (stream.text === "" && (stream.status === "connecting" || stream.status === "streaming") ? (
                 <Thinking />

@@ -8,7 +8,13 @@ const MAX_QUESTION_CHARS = 300;
 const DEFAULT_QUOTE_QUESTION = "Giải thích đoạn này";
 
 // Ô nhập câu hỏi, kèm khối trích dẫn khi người dùng bôi đen ở cột trái.
-export function Composer({ disabled, onSend }: { disabled: boolean; onSend: (text: string, quote: string | null) => void }) {
+export function Composer({
+  disabled,
+  onSend,
+}: {
+  disabled: boolean;
+  onSend: (text: string, quote: string | null) => void;
+}) {
   const pendingQuote = useAskStore((s) => s.pendingQuote);
   const setPendingQuote = useAskStore((s) => s.setPendingQuote);
   const [value, setValue] = useState("");
@@ -60,12 +66,20 @@ export function Composer({ disabled, onSend }: { disabled: boolean; onSend: (tex
             aria-label="Câu hỏi"
             className="h-9 min-w-0 flex-1 bg-transparent px-2.5 text-[14.5px] outline-none placeholder:text-ink-3"
           />
-          <Button type="submit" size="icon" disabled={disabled} aria-label="Gửi" className="size-9 flex-none rounded-[9px]">
+          <Button
+            type="submit"
+            size="icon"
+            disabled={disabled}
+            aria-label="Gửi"
+            className="size-9 flex-none rounded-[9px]"
+          >
             <SendIcon className="size-[17px] stroke-[1.9]" />
           </Button>
         </div>
       </form>
-      <p className="mt-1.5 px-1 text-[11.5px] text-ink-3">Enter để gửi · Bôi đen chữ trong tài liệu để hỏi về đoạn đó</p>
+      <p className="mt-1.5 px-1 text-[11.5px] text-ink-3">
+        Enter để gửi · Bôi đen chữ trong tài liệu để hỏi về đoạn đó
+      </p>
     </div>
   );
 }

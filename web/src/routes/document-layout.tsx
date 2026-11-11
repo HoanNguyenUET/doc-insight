@@ -28,7 +28,10 @@ export function DocumentLayout() {
       <Notice>
         <span className="mb-3 block text-ink-2">Đang đọc tài liệu ({doc.progress}%)…</span>
         <span className="mx-auto block h-1.5 w-56 overflow-hidden rounded-full bg-rule-soft">
-          <span className="block h-full rounded-full bg-marker transition-[width]" style={{ width: `${doc.progress}%` }} />
+          <span
+            className="block h-full rounded-full bg-marker transition-[width]"
+            style={{ width: `${doc.progress}%` }}
+          />
         </span>
       </Notice>
     );
@@ -41,8 +44,8 @@ export function DocumentLayout() {
   else if (doc.needs_reprocess)
     body = (
       <Notice back action={<ReprocessButton id={doc.id} />}>
-        Tài liệu này được xử lý bằng một mô hình AI cũ nên AI sẽ tìm sai đoạn khi trả lời. Bấm "Xử lý lại" để đọc lại tài
-        liệu bằng mô hình hiện tại (mất vài giây đến vài phút).
+        Tài liệu này được xử lý bằng một mô hình AI cũ nên AI sẽ tìm sai đoạn khi trả lời. Bấm "Xử lý lại" để đọc lại
+        tài liệu bằng mô hình hiện tại (mất vài giây đến vài phút).
       </Notice>
     );
   else body = <Outlet context={doc} />;
@@ -56,7 +59,9 @@ export function DocumentLayout() {
           </h1>
           {doc && (
             <p className="truncate text-[12.5px] text-ink-3">
-              {[doc.page_count != null && `${doc.page_count} trang`, formatBytes(doc.size_bytes)].filter(Boolean).join(" · ")}
+              {[doc.page_count != null && `${doc.page_count} trang`, formatBytes(doc.size_bytes)]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           )}
         </div>
@@ -80,7 +85,9 @@ function Tab({ to, end, children }: { to: string; end?: boolean; children: React
       className={({ isActive }) =>
         cn(
           "rounded-[7px] px-3.5 py-1.5 text-[13.5px] transition-colors",
-          isActive ? "bg-paper font-medium text-ink shadow-[0_1px_2px_rgba(26,28,31,.08)]" : "text-ink-2 hover:text-ink",
+          isActive
+            ? "bg-paper font-medium text-ink shadow-[0_1px_2px_rgba(26,28,31,.08)]"
+            : "text-ink-2 hover:text-ink",
         )
       }
     >

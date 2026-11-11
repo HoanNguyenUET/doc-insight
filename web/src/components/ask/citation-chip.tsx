@@ -15,7 +15,9 @@ export function CitationChip({ messageId, n, source }: { messageId: string; n: n
       asChild
       className={cn(
         "mx-0.5 cursor-pointer gap-1 rounded-full px-[7px] py-0 align-[1px] text-[11.5px] leading-[18px] font-normal transition-colors",
-        active ? "bg-marker-soft text-marker hover:bg-marker-soft" : "bg-blueprint-soft text-blueprint hover:bg-[#DCE5F3]",
+        active
+          ? "bg-marker-soft text-marker hover:bg-marker-soft"
+          : "bg-blueprint-soft text-blueprint hover:bg-[#DCE5F3]",
       )}
     >
       <button

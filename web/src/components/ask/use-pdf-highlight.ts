@@ -33,7 +33,8 @@ export function usePdfHighlight(docId: string, currentPage: number, sheetRef: Re
   // nonce đổi khi bấm lại cùng trích dẫn: text layer vẽ lại nên animation chạy lại.
   const nonce = activeCitation?.nonce ?? 0;
   const renderText = useCallback(
-    ({ itemIndex, str }: { itemIndex: number; str: string }) => markItem(str, ranges?.get(itemIndex), MARK_CLASS, nonce),
+    ({ itemIndex, str }: { itemIndex: number; str: string }) =>
+      markItem(str, ranges?.get(itemIndex), MARK_CLASS, nonce),
     [ranges, nonce],
   );
 

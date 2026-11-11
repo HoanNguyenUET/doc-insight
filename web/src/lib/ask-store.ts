@@ -75,9 +75,7 @@ export const useAskStore = create<AskState>()(
       // mở được suy ra khi đọc, xem activeConversationFor.
       enterDocument: (docId) =>
         set((s) =>
-          s.documentId === docId
-            ? {}
-            : { documentId: docId, currentPage: 1, activeCitation: null, pendingQuote: null },
+          s.documentId === docId ? {} : { documentId: docId, currentPage: 1, activeCitation: null, pendingQuote: null },
         ),
       // Mở tài liệu ở đúng đoạn, dùng trước khi chuyển sang màn hỏi đáp.
       jumpTo: (docId, c) =>
@@ -129,7 +127,11 @@ export const useAskStore = create<AskState>()(
       name: "doc-insight:ask",
       version: 1,
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ conversations: s.conversations, messages: s.messages, activeConversation: s.activeConversation }),
+      partialize: (s) => ({
+        conversations: s.conversations,
+        messages: s.messages,
+        activeConversation: s.activeConversation,
+      }),
     },
   ),
 );

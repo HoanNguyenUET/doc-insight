@@ -120,7 +120,9 @@ function Panel({
 }
 
 function Spinner() {
-  return <span className="inline-block size-[13px] animate-spin rounded-full border-[1.8px] border-rule border-t-warn" />;
+  return (
+    <span className="inline-block size-[13px] animate-spin rounded-full border-[1.8px] border-rule border-t-warn" />
+  );
 }
 
 function QueueRow({ item }: { item: Item }) {
@@ -142,7 +144,11 @@ function QueueRow({ item }: { item: Item }) {
     );
     bar = { width: 100, color: "bg-ok" };
   } else if (doc.status === "failed") {
-    state = <span className="text-bad" title={doc.error ?? undefined}>Lỗi: {doc.error ?? "không đọc được"}</span>;
+    state = (
+      <span className="text-bad" title={doc.error ?? undefined}>
+        Lỗi: {doc.error ?? "không đọc được"}
+      </span>
+    );
     bar = { width: 100, color: "bg-bad" };
   } else {
     state = (

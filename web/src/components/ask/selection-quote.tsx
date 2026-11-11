@@ -31,7 +31,12 @@ export function SelectionQuote({
     const onMouseUp = () => {
       const sel = window.getSelection();
       const text = sel?.toString().trim() ?? "";
-      if (!sel || sel.rangeCount === 0 || text.length <= MIN_PICK_CHARS || !sheetRef.current?.contains(sel.anchorNode)) {
+      if (
+        !sel ||
+        sel.rangeCount === 0 ||
+        text.length <= MIN_PICK_CHARS ||
+        !sheetRef.current?.contains(sel.anchorNode)
+      ) {
         setPick(null);
         return;
       }

@@ -42,11 +42,7 @@ const newRun = (docId: string, question: string | null): Run => ({
 // Server gửi: sources → token... → done, hoặc error. Sau done/error phải
 // đóng stream ngay, nếu không EventSource sẽ tự kết nối lại và hỏi lại.
 // onFinish (nếu có) được gọi đúng một lần với toàn bộ câu trả lời.
-export function useAnswerStream(
-  docId: string,
-  question: string | null,
-  onFinish?: (result: AnswerResult) => void,
-) {
+export function useAnswerStream(docId: string, question: string | null, onFinish?: (result: AnswerResult) => void) {
   const [run, setRun] = useState(() => newRun(docId, question));
   const buffer = useRef("");
   const notifyFinish = useEffectEvent((result: AnswerResult) => onFinish?.(result));

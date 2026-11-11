@@ -30,9 +30,11 @@ export function DocumentCard({ doc }: { doc: Document }) {
   const ready = tone === "ready";
   const convCount = useAskStore((s) => s.conversations.filter((c) => c.docId === doc.id).length);
 
-  const meta = [doc.page_count != null && `${doc.page_count} trang`, formatBytes(doc.size_bytes), formatDate(doc.created_at)].filter(
-    Boolean,
-  );
+  const meta = [
+    doc.page_count != null && `${doc.page_count} trang`,
+    formatBytes(doc.size_bytes),
+    formatDate(doc.created_at),
+  ].filter(Boolean);
 
   return (
     <div

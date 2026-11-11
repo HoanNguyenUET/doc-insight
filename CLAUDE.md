@@ -99,7 +99,8 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
 docker compose up --build                  # chạy db + api; migration tự chạy khi api khởi động
 cd api && go test ./... && go vet ./...    # kiểm tra api (test tích hợp bị skip)
 cd web && npm run dev                      # frontend (Vite) ở http://localhost:3000
-cd web && npm test && npm run build && npm run lint    # kiểm tra frontend (Vitest)
+cd web && npm test && npm run build && npm run lint && npm run format:check    # kiểm tra frontend
+cd web && npm run format                   # Prettier (sắp class Tailwind); Go dùng gofmt
 ```
 
 Đánh giá chất lượng câu trả lời (gọi API đang chạy, tốn 1 lượt model mỗi câu):

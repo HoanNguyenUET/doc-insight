@@ -90,12 +90,19 @@ const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ESCAPES[c]);
 
 // markItem dựng HTML cho một item của text layer, bọc phần cần tô trong
 // <mark data-cite="nonce">. react-pdf lọc HTML này trước khi gắn vào trang.
-export function markItem(str: string, ranges: [number, number][] | undefined, className: string, nonce: number): string {
+export function markItem(
+  str: string,
+  ranges: [number, number][] | undefined,
+  className: string,
+  nonce: number,
+): string {
   if (!ranges) return escapeHtml(str);
   let html = "";
   let pos = 0;
   for (const [a, b] of ranges) {
-    html += escapeHtml(str.slice(pos, a)) + `<mark class="${className}" data-cite="${nonce}">${escapeHtml(str.slice(a, b))}</mark>`;
+    html +=
+      escapeHtml(str.slice(pos, a)) +
+      `<mark class="${className}" data-cite="${nonce}">${escapeHtml(str.slice(a, b))}</mark>`;
     pos = b;
   }
   return html + escapeHtml(str.slice(pos));

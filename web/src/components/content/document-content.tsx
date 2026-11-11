@@ -12,12 +12,7 @@ import { cn } from "@/lib/utils";
 
 // Bỏ dấu và chữ hoa để tìm "phan boi chau" ra "Phan Bội Châu".
 const fold = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
-    .toLowerCase();
+  s.normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
 
 // Màn "Nội dung tài liệu": giải thích bằng lời thường AI đã đọc tài liệu thế
 // nào, rồi liệt kê các đoạn theo trang. Số liệu kỹ thuật (ký tự, token) chỉ
@@ -50,7 +45,9 @@ export function DocumentContent({ id }: { id: string }) {
           <ol className="grid gap-3 xl:grid-cols-3">
             <Step n={1} title={`Đọc ${doc.page_count ?? 0} trang`}>
               Lấy toàn bộ chữ trong file PDF ({formatBytes(doc.size_bytes)})
-              {seconds != null && `, mất ${seconds < 10 ? seconds.toFixed(1).replace(".", ",") : Math.round(seconds)} giây`}.
+              {seconds != null &&
+                `, mất ${seconds < 10 ? seconds.toFixed(1).replace(".", ",") : Math.round(seconds)} giây`}
+              .
             </Step>
             <Step n={2} title={`Chia thành ${doc.chunk_count} đoạn`}>
               Mỗi đoạn dài khoảng nửa trang, để tìm nhanh phần liên quan tới câu hỏi.
@@ -150,7 +147,13 @@ function ChunkCard({ docId, chunk: c, technical }: { docId: string; chunk: Chunk
 
   // Mở màn hỏi đáp ở đúng trang và tô sáng đoạn này.
   const view = () => {
-    jumpTo(docId, { messageId: `chunk-${c.id}`, ref: 0, page: c.page_number, charStart: c.char_start, charEnd: c.char_end });
+    jumpTo(docId, {
+      messageId: `chunk-${c.id}`,
+      ref: 0,
+      page: c.page_number,
+      charStart: c.char_start,
+      charEnd: c.char_end,
+    });
     navigate(`/documents/${docId}`);
   };
 
@@ -159,15 +162,27 @@ function ChunkCard({ docId, chunk: c, technical }: { docId: string; chunk: Chunk
       <div className="mb-1.5 flex items-center justify-between gap-3">
         <span className="text-[13px] font-medium text-ink-3">Đoạn {c.index + 1}</span>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="h-7 px-2 text-[13px] text-ink-2 hover:bg-field" onClick={() => setOpen((o) => !o)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[13px] text-ink-2 hover:bg-field"
+            onClick={() => setOpen((o) => !o)}
+          >
             {open ? "Thu gọn" : "Đọc hết"}
           </Button>
-          <Button variant="ghost" size="sm" className="h-7 px-2 text-[13px] text-blueprint hover:bg-field" onClick={view}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[13px] text-blueprint hover:bg-field"
+            onClick={view}
+          >
             Xem trên trang →
           </Button>
         </div>
       </div>
-      <p className={cn("text-[14px] leading-relaxed text-ink", open ? "whitespace-pre-wrap" : "line-clamp-3")}>{c.content}</p>
+      <p className={cn("text-[14px] leading-relaxed text-ink", open ? "whitespace-pre-wrap" : "line-clamp-3")}>
+        {c.content}
+      </p>
       {technical && (
         <p className="mt-2 font-mono text-[11.5px] text-ink-3">
           mã {c.id} · ký tự {c.char_start}–{c.char_end} ({c.char_end - c.char_start}) · {c.token_count ?? "?"} token

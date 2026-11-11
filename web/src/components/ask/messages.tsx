@@ -39,7 +39,11 @@ export function Thinking() {
       Đang trả lời
       <span className="inline-flex gap-[3px]" aria-hidden>
         {[0, 200, 400].map((d) => (
-          <span key={d} className="size-[5px] animate-blip rounded-full bg-blueprint" style={{ animationDelay: `${d}ms` }} />
+          <span
+            key={d}
+            className="size-[5px] animate-blip rounded-full bg-blueprint"
+            style={{ animationDelay: `${d}ms` }}
+          />
         ))}
       </span>
     </div>

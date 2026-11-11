@@ -71,7 +71,7 @@ function DocumentList({ activeId, query }: { activeId: string | undefined; query
       <div className="px-5 pb-1.5 text-[11px] font-medium tracking-[0.06em] text-ink-3 uppercase">
         Tài liệu {docs && `· ${docs.length}`}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 [scrollbar-width:thin]">
+      <div className="min-h-0 flex-1 [scrollbar-width:thin] overflow-y-auto px-3 pb-4">
         {isPending ? (
           <p className="px-3 py-2 text-[13px] text-ink-3">Đang tải…</p>
         ) : isError ? (
