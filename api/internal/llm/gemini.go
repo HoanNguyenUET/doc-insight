@@ -17,8 +17,11 @@ import (
 )
 
 const (
-	DefaultGeminiEmbedModel = "text-embedding-004"
-	DefaultGeminiChatModel  = "gemini-2.0-flash"
+	// text-embedding-004 và gemini-2.0-flash đã bị Google tắt trong năm 2026.
+	// Không dùng gemini-embedding-2: nó gộp mọi văn bản của một request thành
+	// một vector, trong khi mỗi chunk cần vector riêng.
+	DefaultGeminiEmbedModel = "gemini-embedding-001"
+	DefaultGeminiChatModel  = "gemini-3.5-flash"
 
 	geminiBaseURL = "https://generativelanguage.googleapis.com/v1beta"
 	// geminiTimeout áp cho từng lần gọi, kể cả thời gian đọc hết stream.

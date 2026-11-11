@@ -107,8 +107,8 @@ Chưa có: Makefile (`make migrate`, `make seed`), Dockerfile cho `web/`.
 | `STORAGE_DIR` | Nơi lưu file PDF, mặc định `storage` (Docker: `/data/uploads`) |
 | `LLM_PROVIDER` | `mock` hoặc `gemini`, mặc định `mock` |
 | `LLM_API_KEY` | Gemini API key, bắt buộc khi `LLM_PROVIDER=gemini` |
-| `LLM_EMBED_MODEL` | Model embedding của Gemini, mặc định `text-embedding-004` (phải ra được 768 chiều) |
-| `LLM_CHAT_MODEL` | Model trả lời của Gemini, mặc định `gemini-2.0-flash` |
+| `LLM_EMBED_MODEL` | Model embedding của Gemini, mặc định `gemini-embedding-001` (phải ra được 768 chiều) |
+| `LLM_CHAT_MODEL` | Model trả lời của Gemini, mặc định `gemini-3.5-flash` |
 | `ALLOWED_ORIGINS` | CORS, phân tách bằng dấu phẩy, mặc định `http://localhost:3000`; `*` là mọi origin |
 | `NEXT_PUBLIC_API_URL` | (web) Địa chỉ API, mặc định `http://localhost:8080`; xem `web/.env.example` |
 

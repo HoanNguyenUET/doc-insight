@@ -43,7 +43,7 @@ func embedHandler(t *testing.T, batchSizes *[]int, dims int) http.HandlerFunc {
 		if r.URL.Query().Has("key") {
 			t.Error("api key must not be in the query string")
 		}
-		if r.URL.Path != "/models/text-embedding-004:batchEmbedContents" {
+		if r.URL.Path != "/models/gemini-embedding-001:batchEmbedContents" {
 			t.Errorf("path = %s", r.URL.Path)
 		}
 		var req struct {
@@ -55,7 +55,7 @@ func embedHandler(t *testing.T, batchSizes *[]int, dims int) http.HandlerFunc {
 		*batchSizes = append(*batchSizes, len(req.Requests))
 		var res geminiEmbedResponse
 		for _, rq := range req.Requests {
-			if rq.Model != "models/text-embedding-004" || rq.OutputDimensionality != Dimensions {
+			if rq.Model != "models/gemini-embedding-001" || rq.OutputDimensionality != Dimensions {
 				t.Errorf("request = %+v", rq)
 			}
 			// Mã hoá văn bản "t<i>" thành giá trị để kiểm tra thứ tự.
@@ -244,7 +244,7 @@ func TestGeminiStream(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := newTestGemini(t, func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path != "/models/gemini-2.0-flash:streamGenerateContent" || r.URL.Query().Get("alt") != "sse" {
+				if r.URL.Path != "/models/gemini-3.5-flash:streamGenerateContent" || r.URL.Query().Get("alt") != "sse" {
 					t.Errorf("url = %s", r.URL)
 				}
 				var req struct {
