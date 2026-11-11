@@ -105,7 +105,7 @@ func TestDocumentLifecycle(t *testing.T) {
 		{Index: 0, Content: "Đoạn một.", PageNumber: 1, CharStart: 0, CharEnd: 9, TokenCount: 3},
 		{Index: 1, Content: "Đoạn hai.", PageNumber: 2, CharStart: 5, CharEnd: 14, TokenCount: 3, Embedding: emb},
 	}
-	if err := db.CompleteDocument(ctx, d.ID, 2, chunks); err != nil {
+	if err := db.CompleteDocument(ctx, d.ID, blankPages(2), chunks); err != nil {
 		t.Fatalf("CompleteDocument: %v", err)
 	}
 	got = mustGet(t, db, d.ID)
@@ -140,7 +140,7 @@ func TestDocumentLifecycle(t *testing.T) {
 	}
 
 	// Chạy lại thay thế, không cộng dồn.
-	if err := db.CompleteDocument(ctx, d.ID, 1, chunks[:1]); err != nil {
+	if err := db.CompleteDocument(ctx, d.ID, blankPages(1), chunks[:1]); err != nil {
 		t.Fatalf("CompleteDocument rerun: %v", err)
 	}
 	if n := chunkCount(t, db, d.ID); n != 1 || mustGet(t, db, d.ID).ChunkCount != 1 {
@@ -162,7 +162,7 @@ func TestCompleteDocumentIsAllOrNothing(t *testing.T) {
 	}
 	chunks[119].CharEnd = chunks[119].CharStart // vi phạm chunks_char_range_check
 
-	if err := db.CompleteDocument(ctx, d.ID, 1, chunks); err == nil {
+	if err := db.CompleteDocument(ctx, d.ID, blankPages(1), chunks); err == nil {
 		t.Fatal("want error, got nil")
 	}
 	if n := chunkCount(t, db, d.ID); n != 0 {
@@ -185,7 +185,7 @@ func TestStageUpdatesOnMissingDocument(t *testing.T) {
 	if err := db.FailDocument(ctx, missing, "x"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("FailDocument err = %v", err)
 	}
-	if err := db.CompleteDocument(ctx, missing, 1, nil); !errors.Is(err, ErrNotFound) {
+	if err := db.CompleteDocument(ctx, missing, blankPages(1), nil); !errors.Is(err, ErrNotFound) {
 		t.Errorf("CompleteDocument err = %v", err)
 	}
 }
@@ -195,7 +195,7 @@ func TestDeleteDocument(t *testing.T) {
 	db := newMigratedDB(t)
 	ctx := context.Background()
 	d, _ := db.CreateDocument(ctx, "a.pdf", 1)
-	if err := db.CompleteDocument(ctx, d.ID, 1, []NewChunk{{Content: "x", PageNumber: 1, CharEnd: 1}}); err != nil {
+	if err := db.CompleteDocument(ctx, d.ID, blankPages(1), []NewChunk{{Content: "x", PageNumber: 1, CharEnd: 1}}); err != nil {
 		t.Fatal(err)
 	}
 

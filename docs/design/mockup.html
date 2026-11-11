@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doc Insight</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;450;500;600&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FDFCF9;
+  --field:#F2EFE8;
+  --rule:#DFDAD0;
+  --rule-soft:#EBE7DE;
+  --ink:#1A1C1F;
+  --ink-2:#55585E;
+  --ink-3:#8A8D94;
+  --blueprint:#1B3A6B;
+  --blueprint-soft:#EAEFF7;
+  --marker:#C9731B;
+  --marker-soft:#FBEEDC;
+  --ok:#2F6B4F;
+  --warn:#9A6212;
+  --bad:#9B3024;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --serif:'Spectral',Georgia,serif;
+  --mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--sans);
+  background:var(--field);
+  color:var(--ink);
+  font-size:15px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  display:flex;
+  overflow:hidden;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select{font:inherit;color:inherit}
+::selection{background:var(--marker-soft)}
+
+/* ---------- rail ---------- */
+.rail{
+  width:216px;flex:0 0 216px;height:100vh;
+  background:var(--paper);
+  border-right:1px solid var(--rule);
+  display:flex;flex-direction:column;
+}
+.brand{padding:26px 22px 22px;display:flex;align-items:baseline;gap:9px}
+.brand b{font-size:19px;font-weight:600;letter-spacing:-.02em}
+.brand span{font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:.04em}
+.nav{padding:0 12px;display:flex;flex-direction:column;gap:1px}
+.nav button{
+  display:flex;align-items:center;gap:11px;
+  padding:9px 10px;border-radius:7px;
+  font-size:14.5px;color:var(--ink-2);text-align:left;width:100%;
+  transition:background .12s,color .12s;
+}
+.nav button:hover{background:var(--field);color:var(--ink)}
+.nav button.on{background:var(--blueprint);color:#fff;font-weight:500}
+.nav svg{width:17px;height:17px;flex:0 0 17px;stroke-width:1.6}
+.rail-foot{margin-top:auto;padding:16px 18px;border-top:1px solid var(--rule-soft);display:flex;align-items:center;gap:10px}
+.av{width:30px;height:30px;border-radius:50%;background:var(--blueprint);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:600}
+.rail-foot p{font-size:13.5px;font-weight:500;line-height:1.3}
+.rail-foot small{font-size:12px;color:var(--ink-3)}
+
+/* ---------- shell ---------- */
+.main{flex:1;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.screen{display:none;flex:1;overflow:hidden;flex-direction:column}
+.screen.on{display:flex}
+.pad{padding:30px 36px;overflow-y:auto;flex:1}
+.head{margin-bottom:26px;display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.head h1{font-size:25px;font-weight:600;letter-spacing:-.02em;line-height:1.2}
+.head p{color:var(--ink-2);font-size:14.5px;margin-top:3px;max-width:58ch}
+.tools{display:flex;gap:9px;align-items:center}
+.search{position:relative}
+.search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:15px;height:15px;stroke:var(--ink-3);stroke-width:1.8}
+.search input{
+  background:var(--paper);border:1px solid var(--rule);border-radius:7px;
+  padding:8px 12px 8px 31px;width:210px;font-size:14px;outline:none;
+}
+.search input:focus{border-color:var(--blueprint)}
+select{background:var(--paper);border:1px solid var(--rule);border-radius:7px;padding:8px 10px;font-size:14px;outline:none}
+.btn{background:var(--blueprint);color:#fff;border-radius:7px;padding:8px 15px;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:7px}
+.btn:hover{background:#16305A}
+.btn.ghost{background:var(--paper);color:var(--ink);border:1px solid var(--rule)}
+.btn.ghost:hover{background:var(--field)}
+.btn svg{width:15px;height:15px;stroke-width:2}
+
+/* ---------- doc grid ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(304px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+.doc{background:var(--paper);padding:20px 21px 17px;display:flex;flex-direction:column;min-height:168px;transition:background .13s;text-align:left;width:100%;cursor:pointer}
+.doc:hover{background:#fff}
+.doc:hover h3{color:var(--blueprint)}
+.doc.off{cursor:default}
+.doc.off:hover h3{color:inherit}
+.doc h3{transition:color .12s}
+.convs{font-size:13px;color:var(--ink-3)}
+.doc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:11px}
+.doc h3{font-family:var(--serif);font-size:17.5px;font-weight:600;line-height:1.3;letter-spacing:-.005em}
+.tag{font-size:12px;font-weight:500;padding:2px 8px;border-radius:20px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.tag.ready{background:#E8F1EC;color:var(--ok)}
+.tag.proc{background:#FBF0DB;color:var(--warn)}
+.tag.err{background:#F7E7E5;color:var(--bad)}
+.dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.tag.proc .dot{animation:blip 1.4s infinite}
+@keyframes blip{0%,100%{opacity:1}50%{opacity:.25}}
+.meta{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);letter-spacing:-.01em;margin-bottom:14px}
+.doc-foot{margin-top:auto;padding-top:13px;border-top:1px solid var(--rule-soft);display:flex;align-items:center;justify-content:space-between}
+.link{color:var(--blueprint);font-size:14px;font-weight:500}
+.link:hover{text-decoration:underline}
+.icons{display:flex;gap:2px}
+.icons button{padding:5px;border-radius:5px;color:var(--ink-3)}
+.icons button:hover{background:var(--field);color:var(--ink)}
+.icons svg{width:16px;height:16px;stroke-width:1.7;display:block}
+.bar{height:3px;background:var(--rule-soft);border-radius:2px;overflow:hidden;margin-bottom:12px}
+.bar i{display:block;height:100%;background:var(--marker);border-radius:2px}
+
+/* ---------- upload ---------- */
+.two{display:grid;grid-template-columns:1fr 310px;gap:26px;align-items:start}
+.drop{
+  border:1.5px dashed var(--rule);border-radius:10px;background:var(--paper);
+  padding:46px 30px;text-align:center;transition:.15s;cursor:pointer;
+}
+.drop:hover,.drop.over{border-color:var(--blueprint);background:#fff}
+.drop h3{font-size:17px;font-weight:500;margin-bottom:5px}
+.drop p{color:var(--ink-3);font-size:14px}
+.drop svg{width:30px;height:30px;stroke:var(--blueprint);stroke-width:1.4;margin-bottom:13px}
+.panel{background:var(--paper);border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+.panel-h{padding:14px 18px;border-bottom:1px solid var(--rule-soft);display:flex;justify-content:space-between;align-items:center}
+.panel-h h3{font-size:15px;font-weight:600}
+.panel-h span{font-size:13px;color:var(--ink-3)}
+.q{padding:14px 18px;border-bottom:1px solid var(--rule-soft)}
+.q:last-child{border-bottom:none}
+.q-row{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:9px}
+.q-name{font-size:14px;font-weight:450;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.q-size{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+.q-state{font-size:13px;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.spin{width:13px;height:13px;border:1.8px solid var(--rule);border-top-color:var(--warn);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.steps{padding:6px 0}
+.step{display:flex;gap:13px;padding:11px 18px;position:relative}
+.step::before{content:'';position:absolute;left:30px;top:30px;bottom:-11px;width:1px;background:var(--rule)}
+.step:last-child::before{display:none}
+.step i{width:25px;height:25px;flex:0 0 25px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:600;font-style:normal;background:var(--field);color:var(--ink-3);z-index:1}
+.step.done i{background:#E8F1EC;color:var(--ok)}
+.step.now i{background:#FBF0DB}
+.step h4{font-size:14px;font-weight:500;line-height:1.4}
+.step p{font-size:13px;color:var(--ink-3);line-height:1.45}
+.step.todo h4{color:var(--ink-3)}
+
+/* ---------- ask screen ---------- */
+.ask{display:flex;flex:1;overflow:hidden}
+.reader{flex:1 1 56%;display:flex;flex-direction:column;background:var(--field);border-right:1px solid var(--rule);min-width:0}
+.reader-bar{height:50px;flex:0 0 50px;background:var(--paper);border-bottom:1px solid var(--rule);display:flex;align-items:center;justify-content:space-between;padding:0 16px;gap:14px}
+.fname{font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pager{display:flex;align-items:center;gap:1px;background:var(--field);border-radius:7px;padding:2px}
+.pager button{width:26px;height:24px;border-radius:5px;color:var(--ink-2);display:grid;place-items:center}
+.pager button:hover{background:var(--paper)}
+.pager span{font-family:var(--mono);font-size:12px;padding:0 8px;color:var(--ink-2)}
+.scroll{flex:1;overflow-y:auto;padding:28px 20px 40px;display:flex;justify-content:center;position:relative}
+.sheet{
+  background:#fff;width:100%;max-width:620px;min-height:800px;
+  padding:52px 56px 56px;position:relative;
+  box-shadow:0 1px 2px rgba(26,28,31,.06),0 8px 26px rgba(26,28,31,.07);
+  transform-origin:top center;
+}
+.sheet-h{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--ink-3);padding-bottom:13px;border-bottom:1px solid var(--rule-soft);margin-bottom:26px}
+.sheet-b{font-family:var(--serif);font-size:15.5px;line-height:1.72;color:#24262A}
+.sheet-b h2{font-family:var(--sans);font-size:14px;font-weight:600;letter-spacing:.01em;margin-bottom:16px;color:var(--ink)}
+.sheet-b h3{font-family:var(--sans);font-size:14.5px;font-weight:600;margin:22px 0 9px}
+.sheet-b p{margin-bottom:14px}
+.sheet-b .note{background:var(--blueprint-soft);border-left:2.5px solid var(--blueprint);padding:12px 15px;font-size:14.5px;line-height:1.6;margin:18px 0}
+.src{padding:2px 0;transition:background .3s;border-radius:2px}
+.src.lit{background:var(--marker-soft);box-shadow:0 0 0 5px var(--marker-soft)}
+.src.flash{animation:flash 1.5s}
+@keyframes flash{0%,100%{background:var(--marker-soft);box-shadow:0 0 0 5px var(--marker-soft)}25%,75%{background:#F6D9A8;box-shadow:0 0 0 5px #F6D9A8}}
+.sheet-f{position:absolute;left:56px;right:56px;bottom:26px;display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--ink-3);padding-top:12px;border-top:1px solid var(--rule-soft)}
+.pick{
+  position:absolute;z-index:40;background:var(--ink);color:#fff;
+  font-size:13px;font-weight:450;padding:6px 12px;border-radius:7px;
+  display:none;align-items:center;gap:7px;white-space:nowrap;
+  transform:translate(-50%,-130%);box-shadow:0 4px 14px rgba(0,0,0,.2);
+}
+.pick.show{display:flex}
+.pick svg{width:14px;height:14px;stroke-width:1.8}
+
+/* chat */
+.chat{flex:1 1 44%;display:flex;flex-direction:column;background:var(--paper);min-width:0}
+.chat-bar{height:50px;flex:0 0 50px;border-bottom:1px solid var(--rule-soft);display:flex;align-items:center;justify-content:space-between;padding:0 18px;gap:12px}
+.chat-bar h2{font-size:14.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-bar .sub{font-size:12.5px;color:var(--ink-3);white-space:nowrap}
+.tabs{flex:0 0 auto;display:flex;align-items:stretch;gap:2px;padding:0 12px;border-bottom:1px solid var(--rule);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  padding:9px 13px 8px;font-size:13.5px;color:var(--ink-2);white-space:nowrap;
+  border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:6px 6px 0 0;
+}
+.tab:hover{background:var(--field);color:var(--ink)}
+.tab.on{color:var(--blueprint);border-bottom-color:var(--blueprint);font-weight:500}
+.tab-new{padding:9px 11px;color:var(--ink-3);font-size:16px;line-height:1;align-self:center;border-radius:6px}
+.tab-new:hover{background:var(--field);color:var(--ink)}
+.empty{margin:auto;text-align:center;color:var(--ink-3);font-size:14px;padding:40px 20px;max-width:34ch;line-height:1.6}
+.thread{flex:1;overflow-y:auto;padding:22px 20px;display:flex;flex-direction:column;gap:18px}
+.me{align-self:flex-end;max-width:84%;background:var(--blueprint);color:#fff;padding:11px 15px;border-radius:14px 14px 4px 14px;font-size:14.5px;line-height:1.55}
+.me .quoted{border-left:2px solid rgba(255,255,255,.45);padding-left:9px;margin-bottom:8px;font-family:var(--serif);font-style:italic;font-size:13.5px;opacity:.85;line-height:1.5}
+.ai{align-self:flex-start;max-width:93%;font-size:14.5px;line-height:1.68}
+.ai p{margin-bottom:11px}
+.ai p:last-child{margin-bottom:0}
+.cite{
+  display:inline-flex;align-items:center;gap:5px;vertical-align:baseline;
+  background:var(--blueprint-soft);color:var(--blueprint);
+  padding:1px 7px 1px 5px;border-radius:5px;font-size:12.5px;font-weight:500;
+  cursor:pointer;transition:.12s;margin:0 1px;
+}
+.cite:hover{background:#DCE5F3}
+.cite.on{background:var(--marker-soft);color:var(--marker)}
+.cite b{font-family:var(--mono);font-size:10px;width:14px;height:14px;border-radius:3px;background:currentColor;display:grid;place-items:center}
+.cite b::after{content:attr(data-n);color:var(--blueprint-soft)}
+.cite.on b::after{color:var(--marker-soft)}
+.caret{display:inline-block;width:2px;height:15px;background:var(--blueprint);vertical-align:-2px;margin-left:2px;animation:blink 1.1s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+.composer{border-top:1px solid var(--rule);padding:14px 16px}
+.quote-chip{background:var(--field);border-left:2.5px solid var(--marker);border-radius:0 7px 7px 0;padding:9px 12px;margin-bottom:10px;display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
+.quote-chip p{font-family:var(--serif);font-size:13.5px;font-style:italic;color:var(--ink-2);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.quote-chip button{color:var(--ink-3);flex:0 0 auto}
+.quote-chip button:hover{color:var(--ink)}
+.quote-chip svg{width:15px;height:15px;stroke-width:1.8;display:block}
+.input-row{display:flex;gap:9px;align-items:flex-end}
+.input-row input{flex:1;background:var(--field);border:1px solid transparent;border-radius:9px;padding:11px 14px;font-size:14.5px;outline:none}
+.input-row input:focus{background:#fff;border-color:var(--blueprint)}
+.send{background:var(--blueprint);color:#fff;width:40px;height:40px;border-radius:9px;display:grid;place-items:center;flex:0 0 40px}
+.send:hover{background:#16305A}
+.send svg{width:17px;height:17px;stroke-width:1.9}
+
+/* ---------- detail ---------- */
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:10px;overflow:hidden;margin-bottom:26px}
+.fact{background:var(--paper);padding:15px 18px}
+.fact dt{font-size:13px;color:var(--ink-3);margin-bottom:3px}
+.fact dd{font-size:15.5px;font-weight:500}
+.fact dd.m{font-family:var(--mono);font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead th{text-align:left;font-size:13px;font-weight:500;color:var(--ink-3);padding:11px 18px;border-bottom:1px solid var(--rule)}
+tbody td{padding:13px 18px;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:#fff}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink-2);white-space:nowrap}
+.snip{color:var(--ink-2);line-height:1.5}
+tr.open .snip{color:var(--ink)}
+.score{font-family:var(--mono);font-size:12.5px;color:var(--ok)}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:99}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+:focus-visible{outline:2px solid var(--blueprint);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <div class="brand"><b>Doc Insight</b><span>v0.4</span></div>
+  <nav class="nav">
+    <button class="on" data-s="1" onclick="go(1)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10"/></svg>Tài liệu</button>
+    <button data-s="3" onclick="go(3)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h8M8 8h8M21 12a9 9 0 11-3.5-7.1L21 4v8z"/></svg>Hỏi đáp</button>
+    <button data-s="2" onclick="go(2)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>Tải lên</button>
+    <button data-s="4" onclick="go(4)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16M4 10h16M4 15h10M4 20h7"/></svg>Chỉ mục</button>
+  </nav>
+  <div class="rail-foot">
+    <div class="av">HN</div>
+    <div><p>Hoàn Nguyễn</p><small>Kỹ sư dự án</small></div>
+  </div>
+</aside>
+
+<main class="main">
+
+<!-- 1 -->
+<section class="screen on" id="s1"><div class="pad">
+  <div class="head">
+    <div><h1>Tài liệu</h1><p>Quy chuẩn, báo cáo khảo sát và hướng dẫn vận hành đã được lập chỉ mục.</p></div>
+    <div class="tools">
+      <div class="search"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" oninput="renderDocs()" placeholder="Tìm tài liệu"></div>
+      <select id="f" onchange="renderDocs()"><option value="all">Mọi trạng thái</option><option value="ready">Sẵn sàng</option><option value="proc">Đang xử lý</option><option value="err">Lỗi</option></select>
+      <button class="btn" onclick="go(2)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>Tải lên</button>
+    </div>
+  </div>
+  <div class="grid" id="docs"></div>
+</div></section>
+
+<!-- 2 -->
+<section class="screen" id="s2"><div class="pad">
+  <div class="head"><div><h1>Tải tài liệu lên</h1><p>Hệ thống trích xuất văn bản, cắt đoạn và tạo chỉ mục vector. Quá trình chạy nền, bạn có thể rời trang.</p></div></div>
+  <div class="two">
+    <div>
+      <div class="drop" id="drop" onclick="toast('Demo — chưa gắn backend')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 15v3a3 3 0 003 3h10a3 3 0 003-3v-3"/></svg>
+        <h3>Kéo thả file PDF vào đây</h3>
+        <p>Hoặc bấm để chọn. Tối đa 50 MB mỗi file.</p>
+      </div>
+      <div class="panel" style="margin-top:22px">
+        <div class="panel-h"><h3>Hàng đợi</h3><span>3 file</span></div>
+        <div class="q">
+          <div class="q-row"><div><div class="q-name">Quy trinh nghiem thu cong trinh 2026.pdf</div><div class="q-size">14.2 MB</div></div><div class="q-state" style="color:var(--blueprint)">45%</div></div>
+          <div class="bar"><i style="width:45%;background:var(--blueprint)"></i></div>
+        </div>
+        <div class="q">
+          <div class="q-row"><div><div class="q-name">Huong dan van hanh he thong giam sat.pdf</div><div class="q-size">8.5 MB</div></div><div class="q-state" style="color:var(--warn)"><span class="spin"></span>Đang cắt đoạn</div></div>
+          <div class="bar"><i style="width:82%"></i></div>
+        </div>
+        <div class="q">
+          <div class="q-row"><div><div class="q-name">Bao cao khao sat dia chat Q3.pdf</div><div class="q-size">22.4 MB</div></div><div class="q-state" style="color:var(--ok)">Xong · 210 đoạn</div></div>
+          <div class="bar"><i style="width:100%;background:var(--ok)"></i></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-h"><h3>Các bước xử lý</h3></div>
+      <div class="steps">
+        <div class="step done"><i>✓</i><div><h4>Nhận file</h4><p>Kiểm tra định dạng và lưu trữ</p></div></div>
+        <div class="step done"><i>✓</i><div><h4>Trích xuất văn bản</h4><p>Giữ lại số trang và toạ độ từng đoạn</p></div></div>
+        <div class="step now"><i><span class="spin" style="border-top-color:var(--warn)"></span></i><div><h4>Cắt đoạn</h4><p>500 token mỗi đoạn, chồng lấn 50</p></div></div>
+        <div class="step todo"><i>4</i><div><h4>Tạo embedding</h4><p>Lưu vector 768 chiều vào pgvector</p></div></div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- 3 -->
+<section class="screen" id="s3"><div class="ask">
+  <div class="reader">
+    <div class="reader-bar">
+      <div class="fname" id="fname">Quy trinh nghiem thu cong trinh 2026.pdf</div>
+      <div class="pager">
+        <button onclick="turn(-1)" aria-label="Trang trước">‹</button>
+        <span><b id="pg">7</b> / 24</span>
+        <button onclick="turn(1)" aria-label="Trang sau">›</button>
+      </div>
+    </div>
+    <div class="scroll" id="scroll" onmouseup="onPick(event)">
+      <article class="sheet">
+        <div class="sheet-h"><span>QT-NT-2026 · Tài liệu nội bộ</span><span>Trang <b id="pg2">7</b></span></div>
+        <div class="sheet-b" id="page"></div>
+        <div class="sheet-f"><span>Lưu hành nội bộ</span><span id="pg3">7 / 24</span></div>
+      </article>
+      <div class="pick" id="pick" onclick="quoteIt()">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h8M21 12a9 9 0 11-3.5-7.1L21 4v8z"/></svg>
+        Hỏi về đoạn này
+      </div>
+    </div>
+  </div>
+
+  <div class="chat">
+    <div class="chat-bar"><h2 id="chat-title">Hỏi đáp</h2><span class="sub" id="chat-sub"></span></div>
+    <div class="tabs" id="tabs"></div>
+    <div class="thread" id="thread"></div>
+    <div class="composer">
+      <div class="quote-chip" id="chip" style="display:none">
+        <p id="chip-text"></p>
+        <button onclick="dropQuote()" aria-label="Bỏ trích dẫn"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="input-row">
+        <input id="ask" placeholder="Hỏi về tài liệu này" onkeydown="if(event.key==='Enter')send()">
+        <button class="send" onclick="send()" aria-label="Gửi"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12h15M13 6l6 6-6 6"/></svg></button>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- 4 -->
+<section class="screen" id="s4"><div class="pad">
+  <div class="head">
+    <div><h1>Chỉ mục tài liệu</h1><p>Quy trinh nghiem thu cong trinh 2026.pdf — các đoạn đã cắt và trạng thái embedding.</p></div>
+    <button class="btn ghost" onclick="go(1)">Quay lại</button>
+  </div>
+  <dl class="facts">
+    <div class="fact"><dt>Số trang</dt><dd class="m">24</dd></div>
+    <div class="fact"><dt>Số đoạn</dt><dd class="m">142</dd></div>
+    <div class="fact"><dt>Thời gian xử lý</dt><dd class="m">48 giây</dd></div>
+    <div class="fact"><dt>Mô hình embedding</dt><dd>text-embedding-004</dd></div>
+  </dl>
+  <div class="panel">
+    <div class="panel-h"><h3>Các đoạn đã cắt</h3><span>Bấm một dòng để xem đầy đủ</span></div>
+    <table><thead><tr><th style="width:92px">Mã</th><th style="width:66px">Trang</th><th>Nội dung</th><th style="width:78px">Ký tự</th><th style="width:96px">Tương đồng</th></tr></thead><tbody id="rows"></tbody></table>
+  </div>
+</div></section>
+
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const C=(p,src,n)=>`<span class="cite" data-p="${p}" data-src="${src}" onclick="jump(this)"><b data-n="${n}"></b>Trang ${p}</span>`;
+
+const docs=[
+ {n:"Quy trinh nghiem thu cong trinh 2026.pdf",s:"14.2 MB",p:24,c:142,d:"08/03/2026",st:"ready",t:"Sẵn sàng",
+  convos:[
+   {title:"Nghiệm thu móng cọc",msgs:[
+     {r:"me",h:"Nghiệm thu móng cọc bê tông cần những biên bản kiểm tra nào?"},
+     {r:"ai",h:`<p>Theo Điều 12 và Điều 13 của quy trình, hồ sơ nghiệm thu móng cọc gồm ba nhóm tài liệu.</p>
+      <p>Về chất lượng cọc, cần kết quả thí nghiệm siêu âm và biên bản nén mẫu bê tông tuổi 28 ngày theo TCVN 9394:2012${C(7,'c1',1)}</p>
+      <p>Về hồ sơ thi công, đơn vị thi công nộp nhật ký ép cọc, biểu đồ lực ép theo chiều sâu và biên bản cao độ mũi cọc${C(7,'c2',2)}</p>
+      <p>Về pháp lý, biên bản nội bộ phải có chữ ký của giám sát trưởng, ban quản lý dự án và tư vấn độc lập trước khi trình hội đồng nghiệm thu${C(8,'c3',3)}</p>`},
+     {r:"me",h:"Nếu phát hiện cọc trồi sụt bất thường thì xử lý thế nào?"},
+     {r:"ai",h:`<p>Phải lập biên bản hiện trường ngay, có xác nhận của chủ đầu tư và tư vấn thiết kế${C(7,'c1',1)}</p>`}
+   ]},
+   {title:"Hồ sơ hoàn công",msgs:[
+     {r:"me",h:"Hồ sơ hoàn công nộp trong bao lâu và mấy bộ?"},
+     {r:"ai",h:`<p>Tối thiểu ba bộ bản chính, nộp trong vòng bảy ngày làm việc kể từ khi ký biên bản kết thúc hạng mục${C(8,'c3',1)}</p>`}
+   ]},
+   {title:"Ngưỡng cảnh báo lún",msgs:[
+     {r:"me",h:"Tốc độ lún bao nhiêu thì hệ thống cảnh báo?"},
+     {r:"ai",h:`<p>Vượt 2 mm mỗi ngày đêm, hoặc khi tải trọng vượt ngưỡng thiết kế. Dữ liệu trắc đạc lưu tối thiểu 24 tháng${C(12,'c4',1)}</p>`}
+   ]}
+  ]},
+ {n:"Huong dan van hanh he thong giam sat.pdf",s:"8.5 MB",p:15,c:88,d:"07/03/2026",st:"proc",t:"Đang xử lý",pct:82,convos:[]},
+ {n:"Bao cao khao sat dia chat Q3.pdf",s:"22.4 MB",p:42,c:210,d:"05/03/2026",st:"ready",t:"Sẵn sàng",convos:[]},
+ {n:"Quy dinh an toan lao dong cong truong.pdf",s:"5.1 MB",p:10,c:45,d:"01/03/2026",st:"ready",t:"Sẵn sàng",convos:[]},
+ {n:"Thiet ke ky thuat MEP tang ham B1.pdf",s:"35.8 MB",p:60,c:0,d:"28/02/2026",st:"err",t:"Không đọc được",convos:[]},
+ {n:"Ke hoach von va giai ngan 2026.pdf",s:"4.3 MB",p:12,c:52,d:"25/02/2026",st:"ready",t:"Sẵn sàng",convos:[]}
+];
+const pages={
+7:`<h2>CHƯƠNG IV — NGHIỆM THU MÓNG CỌC VÀ KẾT CẤU NGẦM</h2>
+<h3>Điều 12. Kiểm tra chất lượng cọc khoan nhồi</h3>
+<p><span class="src" id="c1">Công tác kiểm tra chất lượng cọc khoan nhồi và ép cọc thử tải tĩnh phải thực hiện đầy đủ thí nghiệm siêu âm cọc và kiểm tra cường độ nén mẫu bê tông tuổi 28 ngày theo tiêu chuẩn TCVN 9394:2012. Sai số độ lệch tâm cọc không vượt quá 5% đường kính cọc.</span></p>
+<p><span class="src" id="c2">Đơn vị thi công cung cấp nhật ký thi công ép cọc, biểu đồ lực ép theo từng mét chiều sâu và biên bản kiểm tra cao độ mũi cọc cho tư vấn giám sát, trước khi lập biên bản nghiệm thu chuyển bước thi công phần thân đài móng.</span></p>
+<div class="note">Trường hợp cọc bị từ chối kỹ thuật hoặc trồi sụt bất thường, bắt buộc lập biên bản hiện trường có xác nhận của chủ đầu tư và tư vấn thiết kế.</div>
+<p>Mọi thay đổi so với hồ sơ thiết kế được duyệt phải có văn bản chấp thuận trước khi thi công tiếp.</p>`,
+8:`<h2>CHƯƠNG IV (TIẾP) — HỒ SƠ PHÁP LÝ NGHIỆM THU</h2>
+<h3>Điều 13. Thành phần hội đồng nghiệm thu cơ sở</h3>
+<p><span class="src" id="c3">Biên bản nghiệm thu nội bộ cần có chữ ký xác nhận của kỹ sư giám sát trưởng, đại diện ban quản lý dự án và đơn vị tư vấn độc lập, trước khi trình hội đồng nghiệm thu cấp chủ đầu tư phê duyệt.</span></p>
+<p>Hồ sơ hoàn công nộp lưu trữ tối thiểu ba bộ bản chính trong vòng bảy ngày làm việc kể từ khi ký biên bản kết thúc hạng mục.</p>
+<p>Các hạng mục ngầm sau khi nghiệm thu phải lấp đất bảo vệ ngay, tránh xói mòn do mưa bão tại công trường.</p>`,
+12:`<h2>CHƯƠNG VII — GIÁM SÁT TỰ ĐỘNG VÀ TRẮC ĐẠC</h2>
+<h3>Điều 24. Ngưỡng cảnh báo độ lún</h3>
+<p><span class="src" id="c4">Hệ thống giám sát tự động cảnh báo ngay khi tải trọng vượt ngưỡng thiết kế hoặc tốc độ lún vượt 2 mm mỗi ngày đêm. Cảm biến quang học lắp tại các mốc chuẩn truyền dữ liệu về trung tâm điều hành qua cáp quang nội bộ.</span></p>
+<p>Dữ liệu trắc đạc được lưu tối thiểu 24 tháng phục vụ đối chiếu và nghiệm thu giai đoạn.</p>`
+};
+const chunks=[
+ ["CHK-101",7,"Kiểm tra chất lượng cọc khoan nhồi và ép cọc thử tải tĩnh theo TCVN 9394:2012",480,"0.98"],
+ ["CHK-102",7,"Nhật ký thi công ép cọc và biểu đồ lực ép theo chiều sâu",395,"0.95"],
+ ["CHK-103",8,"Chữ ký xác nhận của giám sát trưởng và tư vấn độc lập trên biên bản nội bộ",512,"0.97"],
+ ["CHK-104",12,"Ngưỡng cảnh báo tải trọng và tốc độ lún 2 mm mỗi ngày đêm",420,"0.99"],
+ ["CHK-105",15,"An toàn lao động trong hố móng sâu, biện pháp chống sạt lở vách đất",610,"0.94"]
+];
+
+let page=7, sel="", docIx=0, convIx=0;
+
+function go(n){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  document.getElementById('s'+n).classList.add('on');
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',+b.dataset.s===n));
+}
+function renderDocs(){
+  const q=(document.getElementById('q').value||'').toLowerCase(), f=document.getElementById('f').value;
+  const g=document.getElementById('docs'); g.innerHTML='';
+  docs.filter(d=>d.n.toLowerCase().includes(q)&&(f==='all'||d.st===f)).forEach(d=>{
+    const i=docs.indexOf(d);
+    const el=document.createElement('div');
+    el.className='doc'+(d.st==='ready'?'':' off');
+    el.onclick=()=>openDoc(i);
+    const nc=d.convos.length;
+    el.innerHTML=`<div class="doc-top"><h3>${d.n.replace('.pdf','')}</h3>
+      <span class="tag ${d.st}">${d.st==='proc'?'<i class="dot"></i>':''}${d.t}</span></div>
+      <div class="meta">${d.s} · ${d.p} trang${d.c?' · '+d.c+' đoạn':''} · ${d.d}</div>
+      ${d.st==='proc'?`<div class="bar"><i style="width:${d.pct}%"></i></div>`:''}
+      <div class="doc-foot">
+        <span class="convs">${d.st!=='ready'?'&nbsp;':nc?nc+' hội thoại':'Chưa có hội thoại'}</span>
+        <div class="icons">
+          <button onclick="event.stopPropagation();go(4)" aria-label="Chỉ mục"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+          <button onclick="event.stopPropagation();toast('Đã xoá tài liệu')" aria-label="Xoá"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></svg></button>
+        </div>
+      </div>`;
+    g.appendChild(el);
+  });
+}
+function openDoc(i){
+  const d=docs[i];
+  if(d.st==='proc'){ toast('Tài liệu đang được xử lý'); return; }
+  if(d.st==='err'){ toast('Không đọc được tài liệu này'); return; }
+  docIx=i; convIx=d.convos.length?0:-1;
+  document.getElementById('fname').textContent=d.n;
+  document.getElementById('chat-title').textContent=d.n.replace('.pdf','');
+  load(i===0?7:1);
+  renderTabs(); renderThread();
+  go(3);
+}
+function renderTabs(){
+  const d=docs[docIx], el=document.getElementById('tabs');
+  el.innerHTML=d.convos.map((c,i)=>
+    `<button class="tab${i===convIx?' on':''}" onclick="pickConv(${i})">${c.title}</button>`).join('')
+    +`<button class="tab-new" onclick="newConv()" title="Hội thoại mới" aria-label="Hội thoại mới">+</button>`;
+  document.getElementById('chat-sub').textContent=d.convos.length?d.convos.length+' hội thoại':'';
+}
+function pickConv(i){ convIx=i; renderTabs(); renderThread(); }
+function newConv(){
+  docs[docIx].convos.push({title:'Hội thoại mới',msgs:[]});
+  convIx=docs[docIx].convos.length-1;
+  renderTabs(); renderThread(); renderDocs();
+  document.getElementById('ask').focus();
+}
+function renderThread(){
+  const th=document.getElementById('thread'), d=docs[docIx];
+  const c=d.convos[convIx];
+  if(!c||!c.msgs.length){
+    th.innerHTML=`<div class="empty">Chưa có câu hỏi nào cho tài liệu này. Gõ câu hỏi bên dưới, hoặc bôi đen một đoạn trong tài liệu để hỏi về đoạn đó.</div>`;
+    return;
+  }
+  th.innerHTML=c.msgs.map(m=>m.r==='me'
+    ? `<div class="me">${m.h}</div>`
+    : `<div class="ai">${m.h}</div>`).join('');
+  th.scrollTop=th.scrollHeight;
+}
+function renderRows(){
+  document.getElementById('rows').innerHTML=chunks.map(c=>
+   `<tr onclick="this.classList.toggle('open')"><td class="m">${c[0]}</td><td class="m">${c[1]}</td>
+    <td class="snip">${c[2]}</td><td class="m">${c[3]}</td><td class="score">${c[4]}</td></tr>`).join('');
+}
+function load(n){
+  page=n;
+  document.getElementById('pg').textContent=n;
+  document.getElementById('pg2').textContent=n;
+  document.getElementById('pg3').textContent=n+' / 24';
+  document.getElementById('page').innerHTML=pages[n]||
+    `<p style="color:var(--ink-3);font-family:var(--sans);font-size:14px;padding:60px 0;text-align:center">Trang ${n} chưa có trong bản demo. Thử trang 7, 8 hoặc 12.</p>`;
+}
+function turn(d){ load(Math.min(24,Math.max(1,page+d))); }
+
+function jump(el){
+  document.querySelectorAll('.cite').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  const p=+el.dataset.p, id=el.dataset.src;
+  if(p!==page) load(p);
+  requestAnimationFrame(()=>{
+    const t=document.getElementById(id); if(!t)return;
+    document.querySelectorAll('.src').forEach(s=>s.classList.remove('lit','flash'));
+    t.classList.add('lit','flash');
+    t.scrollIntoView({behavior:'smooth',block:'center'});
+    setTimeout(()=>t.classList.remove('flash'),1600);
+  });
+}
+function onPick(e){
+  const s=window.getSelection(), txt=s.toString().trim(), btn=document.getElementById('pick');
+  if(txt.length>12){
+    sel=txt;
+    const r=s.getRangeAt(0).getBoundingClientRect(), box=document.getElementById('scroll').getBoundingClientRect();
+    btn.style.top=(r.top-box.top+document.getElementById('scroll').scrollTop)+'px';
+    btn.style.left=(r.left-box.left+r.width/2)+'px';
+    btn.classList.add('show');
+  }else setTimeout(()=>{ if(!window.getSelection().toString().trim()) btn.classList.remove('show'); },150);
+}
+function quoteIt(){
+  document.getElementById('pick').classList.remove('show');
+  document.getElementById('chip-text').textContent='“'+sel+'”';
+  document.getElementById('chip').style.display='flex';
+  document.getElementById('ask').focus();
+}
+function dropQuote(){ document.getElementById('chip').style.display='none'; sel=''; }
+function send(){
+  const i=document.getElementById('ask'), v=i.value.trim();
+  if(!v&&!sel)return;
+  const d=docs[docIx];
+  if(convIx<0||!d.convos[convIx]){ d.convos.push({title:'Hội thoại mới',msgs:[]}); convIx=d.convos.length-1; }
+  const conv=d.convos[convIx];
+  const text=v||'Giải thích đoạn này';
+  if(!conv.msgs.length){ conv.title=text.length>26?text.slice(0,26)+'…':text; }
+  conv.msgs.push({r:'me',h:(sel?`<div class="quoted">${sel}</div>`:'')+text});
+  renderTabs(); renderThread(); renderDocs();
+  const th=document.getElementById('thread');
+  i.value=''; dropQuote();
+  const a=document.createElement('div'); a.className='ai';
+  a.innerHTML='<p><span class="caret"></span></p>'; th.appendChild(a); th.scrollTop=th.scrollHeight;
+  const words='Đang tra cứu các đoạn liên quan trong tài liệu và tổng hợp câu trả lời.'.split(' ');
+  let k=0; const run=setInterval(()=>{
+    a.innerHTML='<p>'+words.slice(0,++k).join(' ')+'<span class="caret"></span></p>';
+    th.scrollTop=th.scrollHeight;
+    if(k>=words.length){
+      clearInterval(run);
+      a.innerHTML='<p>'+words.join(' ')+'</p>';
+      docs[docIx].convos[convIx].msgs.push({r:'ai',h:'<p>'+words.join(' ')+'</p>'});
+    }
+  },70);
+}
+let tt;
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),2200); }
+renderRows(); openDoc(0); renderDocs(); go(1);
+</script>
+</body>
+</html>

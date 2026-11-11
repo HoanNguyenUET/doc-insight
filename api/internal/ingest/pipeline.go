@@ -19,7 +19,7 @@ var ErrNoText = errors.New("PDF không có lớp văn bản (có thể là bản
 // Store là phần repository mà pipeline cần.
 type Store interface {
 	SetDocumentStage(ctx context.Context, id, status string, progress int) error
-	CompleteDocument(ctx context.Context, id string, pageCount int, chunks []repository.NewChunk) error
+	CompleteDocument(ctx context.Context, id string, pages []string, chunks []repository.NewChunk) error
 	FailDocument(ctx context.Context, id, message string) error
 }
 
@@ -110,7 +110,11 @@ func (p *Pipeline) Process(ctx context.Context, job Job) error {
 	}
 	log.InfoContext(ctx, "ingest: embedded", "chunks", len(rows), "duration_ms", time.Since(t).Milliseconds())
 
-	if err := p.store.CompleteDocument(ctx, job.DocumentID, len(pages), rows); err != nil {
+	texts := make([]string, len(pages))
+	for i, pg := range pages {
+		texts[i] = pg.Text
+	}
+	if err := p.store.CompleteDocument(ctx, job.DocumentID, texts, rows); err != nil {
 		return deletedOr(err, "lưu chunk")
 	}
 	log.InfoContext(ctx, "ingest: saved", "chunks", len(rows), "status", repository.StatusReady)

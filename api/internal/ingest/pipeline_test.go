@@ -23,7 +23,7 @@ type fakeStore struct {
 	mu        sync.Mutex
 	stages    []string
 	completed []repository.NewChunk
-	pageCount int
+	pages     []string
 	failMsg   string
 	missing   bool
 }
@@ -38,8 +38,8 @@ func (s *fakeStore) SetDocumentStage(_ context.Context, _ string, status string,
 	return nil
 }
 
-func (s *fakeStore) CompleteDocument(_ context.Context, _ string, pageCount int, chunks []repository.NewChunk) error {
-	s.completed, s.pageCount = chunks, pageCount
+func (s *fakeStore) CompleteDocument(_ context.Context, _ string, pages []string, chunks []repository.NewChunk) error {
+	s.completed, s.pages = chunks, pages
 	return nil
 }
 
@@ -125,8 +125,14 @@ func TestPipelineProcess(t *testing.T) {
 		t.Errorf("stages = %s", got)
 	}
 
-	if store.pageCount != 3 {
-		t.Errorf("pageCount = %d, want 3", store.pageCount)
+	// Lưu đúng văn bản trang mà offset của chunk tham chiếu, kể cả trang trống.
+	if len(store.pages) != 3 {
+		t.Fatalf("pages = %d, want 3", len(store.pages))
+	}
+	for i, want := range pages {
+		if store.pages[i] != want {
+			t.Errorf("page %d text = %q, want %q", i+1, store.pages[i], want)
+		}
 	}
 	n := len(store.completed)
 	if n <= 100 || n%50 == 0 {
@@ -143,7 +149,7 @@ func TestPipelineProcess(t *testing.T) {
 		}
 	}
 
-	pageRunes := map[int][]rune{1: []rune(pages[0]), 3: []rune(pages[2])}
+	pageRunes := map[int][]rune{1: []rune(store.pages[0]), 3: []rune(store.pages[2])}
 	for i, c := range store.completed {
 		if c.Index != i {
 			t.Fatalf("chunk %d has index %d", i, c.Index)

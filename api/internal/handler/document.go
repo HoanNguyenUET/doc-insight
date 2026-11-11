@@ -18,6 +18,8 @@ type DocumentService interface {
 	List(ctx context.Context, limit int) ([]repository.Document, error)
 	Get(ctx context.Context, id string) (repository.Document, error)
 	Delete(ctx context.Context, id string) error
+	Page(ctx context.Context, id string, number int) (service.PageView, error)
+	Chunks(ctx context.Context, id string, page int) ([]repository.Chunk, error)
 }
 
 type DocumentHandler struct {
@@ -109,4 +111,41 @@ func (h *DocumentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// Page trả văn bản một trang kèm các chunk trên trang đó.
+func (h *DocumentHandler) Page(w http.ResponseWriter, r *http.Request) {
+	n, err := strconv.Atoi(chi.URLParam(r, "page"))
+	if err != nil || n < 1 {
+		writeError(w, r, badRequest("số trang phải là số nguyên dương"))
+		return
+	}
+	p, err := h.svc.Page(r.Context(), chi.URLParam(r, "id"), n)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, p)
+}
+
+// Chunks trả mọi chunk của tài liệu, hoặc của một trang khi có ?page=.
+func (h *DocumentHandler) Chunks(w http.ResponseWriter, r *http.Request) {
+	page := 0
+	if v := r.URL.Query().Get("page"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			writeError(w, r, badRequest("page phải là số nguyên dương"))
+			return
+		}
+		page = n
+	}
+	chunks, err := h.svc.Chunks(r.Context(), chi.URLParam(r, "id"), page)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if chunks == nil {
+		chunks = []repository.Chunk{} // JSON [] thay vì null
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"chunks": chunks})
 }

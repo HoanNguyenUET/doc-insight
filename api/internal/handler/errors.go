@@ -27,7 +27,7 @@ func errorStatus(err error) int {
 	switch {
 	case errors.As(err, &br), errors.Is(err, service.ErrInvalidFile), errors.Is(err, service.ErrInvalidQuestion):
 		return http.StatusBadRequest
-	case errors.Is(err, service.ErrDocNotFound):
+	case errors.Is(err, service.ErrDocNotFound), errors.Is(err, service.ErrPageNotFound):
 		return http.StatusNotFound
 	case errors.Is(err, service.ErrDocNotReady):
 		return http.StatusConflict

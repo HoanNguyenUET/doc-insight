@@ -26,6 +26,7 @@ type fakeDocService struct {
 	gotLimit   int
 	docs       map[string]repository.Document
 	internalEr error
+	gotPage    int
 }
 
 func (f *fakeDocService) Upload(_ context.Context, filename string, r io.Reader) (repository.Document, error) {
@@ -67,6 +68,29 @@ func (f *fakeDocService) Delete(_ context.Context, id string) error {
 	}
 	delete(f.docs, id)
 	return nil
+}
+
+func (f *fakeDocService) Page(_ context.Context, id string, number int) (service.PageView, error) {
+	f.gotPage = number
+	if _, ok := f.docs[id]; !ok {
+		return service.PageView{}, service.ErrDocNotFound
+	}
+	if number > 2 {
+		return service.PageView{}, service.ErrPageNotFound
+	}
+	return service.PageView{DocumentID: id, PageCount: 2, Number: number, Text: "trang", Chunks: []repository.Chunk{}}, nil
+}
+
+func (f *fakeDocService) Chunks(_ context.Context, id string, page int) ([]repository.Chunk, error) {
+	f.gotPage = page
+	d, ok := f.docs[id]
+	if !ok {
+		return nil, service.ErrDocNotFound
+	}
+	if d.Status != repository.StatusReady {
+		return nil, service.ErrDocNotReady
+	}
+	return nil, nil
 }
 
 func docRouter(svc DocumentService) http.Handler {
@@ -235,6 +259,50 @@ func TestGetAndDeleteDocument(t *testing.T) {
 	}
 }
 
+func TestPageAndChunks(t *testing.T) {
+	id := "22222222-2222-2222-2222-222222222222"
+	busy := "33333333-3333-3333-3333-333333333333"
+	svc := &fakeDocService{docs: map[string]repository.Document{
+		id:   {ID: id, Status: repository.StatusReady},
+		busy: {ID: busy, Status: repository.StatusEmbedding},
+	}}
+	h := docRouter(svc)
+
+	tests := []struct {
+		name     string
+		path     string
+		want     int
+		wantPage int
+	}{
+		{"page", "/api/documents/" + id + "/pages/2", 200, 2},
+		{"page past end", "/api/documents/" + id + "/pages/3", 404, 3},
+		{"page zero", "/api/documents/" + id + "/pages/0", 400, -1},
+		{"page not a number", "/api/documents/" + id + "/pages/x", 400, -1},
+		{"page of missing doc", "/api/documents/nope/pages/1", 404, 1},
+		{"all chunks", "/api/documents/" + id + "/chunks", 200, 0},
+		{"chunks of one page", "/api/documents/" + id + "/chunks?page=4", 200, 4},
+		{"chunks bad page", "/api/documents/" + id + "/chunks?page=-1", 400, -1},
+		{"chunks not ready", "/api/documents/" + busy + "/chunks", 409, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc.gotPage = -1
+			rec, got := do(h, httptest.NewRequest(http.MethodGet, tt.path, nil))
+			if rec.Code != tt.want || svc.gotPage != tt.wantPage {
+				t.Fatalf("status %d page %d, want %d page %d (body %s)", rec.Code, svc.gotPage, tt.want, tt.wantPage, rec.Body)
+			}
+			if tt.want == 200 && strings.HasSuffix(tt.path, "/2") && (got["text"] != "trang" || got["page_count"] != float64(2)) {
+				t.Errorf("page body = %s", rec.Body)
+			}
+			if tt.want == 200 && strings.Contains(tt.path, "/chunks") {
+				if c, ok := got["chunks"].([]any); !ok || len(c) != 0 {
+					t.Errorf("chunks body = %s, want chunks: []", rec.Body)
+				}
+			}
+		})
+	}
+}
+
 func TestErrorStatus(t *testing.T) {
 	tests := []struct {
 		err  error
@@ -243,6 +311,7 @@ func TestErrorStatus(t *testing.T) {
 		{badRequest("x"), 400},
 		{fmt.Errorf("wrap: %w", service.ErrInvalidFile), 400},
 		{fmt.Errorf("wrap: %w", service.ErrDocNotFound), 404},
+		{fmt.Errorf("wrap: %w", service.ErrPageNotFound), 404},
 		{service.ErrFileTooLarge, 413},
 		{fmt.Errorf("copy: %w", &http.MaxBytesError{Limit: 1}), 413},
 		{service.ErrBusy, 503},

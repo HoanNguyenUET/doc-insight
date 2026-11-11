@@ -18,6 +18,8 @@ type fakeRepo struct {
 	docs      map[string]repository.Document
 	createErr error
 	nextID    int
+	pages     map[string][]string
+	chunks    []repository.Chunk
 }
 
 func newFakeRepo() *fakeRepo { return &fakeRepo{docs: map[string]repository.Document{}} }
@@ -56,6 +58,24 @@ func (r *fakeRepo) DeleteDocument(_ context.Context, id string) error {
 	}
 	delete(r.docs, id)
 	return nil
+}
+
+func (r *fakeRepo) GetPage(_ context.Context, id string, number int) (repository.Page, error) {
+	pages := r.pages[id]
+	if number < 1 || number > len(pages) {
+		return repository.Page{}, repository.ErrNotFound
+	}
+	return repository.Page{Number: number, Text: pages[number-1]}, nil
+}
+
+func (r *fakeRepo) ListChunks(_ context.Context, _ string, page int) ([]repository.Chunk, error) {
+	var out []repository.Chunk
+	for _, c := range r.chunks {
+		if page == 0 || c.PageNumber == page {
+			out = append(out, c)
+		}
+	}
+	return out, nil
 }
 
 type fakeQueue struct {
@@ -219,5 +239,47 @@ func TestCleanFilename(t *testing.T) {
 		if got := cleanFilename(in); got != want {
 			t.Errorf("cleanFilename(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestPage(t *testing.T) {
+	three := 3
+	repo := newFakeRepo()
+	repo.docs["ready"] = repository.Document{ID: "ready", Status: repository.StatusReady, PageCount: &three}
+	repo.docs["legacy"] = repository.Document{ID: "legacy", Status: repository.StatusReady, PageCount: &three}
+	repo.docs["busy"] = repository.Document{ID: "busy", Status: repository.StatusEmbedding}
+	repo.pages = map[string][]string{"ready": {"một", "", "ba"}}
+	repo.chunks = []repository.Chunk{{Index: 0, PageNumber: 1}, {Index: 1, PageNumber: 3}, {Index: 2, PageNumber: 3}}
+	svc := NewDocumentService(repo, &fakeQueue{}, t.TempDir())
+
+	tests := []struct {
+		name       string
+		id         string
+		number     int
+		wantErr    error
+		wantText   string
+		wantChunks int
+	}{
+		{"page with chunks", "ready", 3, nil, "ba", 2},
+		{"empty page", "ready", 2, nil, "", 0},
+		{"zero", "ready", 0, ErrPageNotFound, "", 0},
+		{"past end", "ready", 4, ErrPageNotFound, "", 0},
+		{"processed before pages table", "legacy", 1, ErrPageNotFound, "", 0},
+		{"not ready", "busy", 1, ErrDocNotReady, "", 0},
+		{"missing", "nope", 1, ErrDocNotFound, "", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := svc.Page(context.Background(), tt.id, tt.number)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("err = %v, want %v", err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
+			if p.Text != tt.wantText || len(p.Chunks) != tt.wantChunks || p.Chunks == nil || p.PageCount != 3 || p.Number != tt.number {
+				t.Errorf("page = %+v", p)
+			}
+		})
 	}
 }

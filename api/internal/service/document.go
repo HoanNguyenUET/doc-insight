@@ -22,6 +22,7 @@ var (
 	ErrInvalidFile  = errors.New("file không hợp lệ")
 	ErrFileTooLarge = errors.New("file vượt quá 50 MB")
 	ErrBusy         = errors.New("server đang bận xử lý tài liệu khác, hãy thử lại sau")
+	ErrPageNotFound = errors.New("không có trang này")
 )
 
 const MaxUploadBytes = 50 << 20
@@ -33,6 +34,18 @@ type DocumentRepo interface {
 	GetDocument(ctx context.Context, id string) (repository.Document, error)
 	ListDocuments(ctx context.Context, limit int) ([]repository.Document, error)
 	DeleteDocument(ctx context.Context, id string) error
+	GetPage(ctx context.Context, documentID string, number int) (repository.Page, error)
+	ListChunks(ctx context.Context, documentID string, page int) ([]repository.Chunk, error)
+}
+
+// PageView là một trang kèm các chunk nằm trên nó, đủ để trình xem tài liệu
+// tô sáng đoạn nguồn theo char_start/char_end.
+type PageView struct {
+	DocumentID string             `json:"document_id"`
+	PageCount  int                `json:"page_count"`
+	Number     int                `json:"page_number"`
+	Text       string             `json:"text"`
+	Chunks     []repository.Chunk `json:"chunks"`
 }
 
 type JobQueue interface {
@@ -146,6 +159,53 @@ func (s *DocumentService) Get(ctx context.Context, id string) (repository.Docume
 		return repository.Document{}, ErrDocNotFound
 	}
 	return doc, err
+}
+
+// readyDoc trả tài liệu đã xử lý xong; trang và chunk chỉ có sau bước đó.
+func (s *DocumentService) readyDoc(ctx context.Context, id string) (repository.Document, error) {
+	doc, err := s.Get(ctx, id)
+	if err != nil {
+		return repository.Document{}, err
+	}
+	if doc.Status != repository.StatusReady || doc.PageCount == nil {
+		return repository.Document{}, fmt.Errorf("%w (trạng thái %s)", ErrDocNotReady, doc.Status)
+	}
+	return doc, nil
+}
+
+func (s *DocumentService) Page(ctx context.Context, id string, number int) (PageView, error) {
+	doc, err := s.readyDoc(ctx, id)
+	if err != nil {
+		return PageView{}, err
+	}
+	if number < 1 || number > *doc.PageCount {
+		return PageView{}, fmt.Errorf("%w: tài liệu có %d trang", ErrPageNotFound, *doc.PageCount)
+	}
+	p, err := s.repo.GetPage(ctx, doc.ID, number)
+	if errors.Is(err, repository.ErrNotFound) {
+		// Số trang hợp lệ mà không có dòng: tài liệu xử lý trước khi có bảng pages.
+		return PageView{}, fmt.Errorf("%w: tài liệu chưa lưu văn bản trang, hãy tải lên lại", ErrPageNotFound)
+	}
+	if err != nil {
+		return PageView{}, err
+	}
+	chunks, err := s.repo.ListChunks(ctx, doc.ID, number)
+	if err != nil {
+		return PageView{}, err
+	}
+	if chunks == nil {
+		chunks = []repository.Chunk{} // JSON [] thay vì null
+	}
+	return PageView{DocumentID: doc.ID, PageCount: *doc.PageCount, Number: p.Number, Text: p.Text, Chunks: chunks}, nil
+}
+
+// Chunks trả các chunk của tài liệu; page > 0 thì chỉ lấy trang đó.
+func (s *DocumentService) Chunks(ctx context.Context, id string, page int) ([]repository.Chunk, error) {
+	doc, err := s.readyDoc(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.ListChunks(ctx, doc.ID, page)
 }
 
 // Delete xoá row (chunk xoá theo) rồi xoá file. Nếu worker đang xử lý tài

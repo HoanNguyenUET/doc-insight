@@ -36,15 +36,21 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
 
 ## Quy ước frontend
 
+- Đặc tả giao diện: `docs/design/mockup.html` (mở bằng trình duyệt).
+  Bố cục, màu, chữ và luồng tương tác của `web/` bám theo file này.
+
 - Dữ liệu từ server → TanStack Query. Query key dạng mảng:
-  `['documents']`, `['document', id]`, `['pages', id, pageNo]`.
+  `['documents']`, `['document', id]`, `['pages', id, pageNo]`,
+  `['chunks', id]`. Khai báo ở `web/lib/query-client.ts`.
 - State giao diện dùng chung giữa hai cột → Zustand store
   `ask-store.ts`.
 - State chỉ một component quan tâm → `useState` tại chỗ.
 - Không bao giờ nhét dữ liệu server vào Zustand.
 - Server Component là mặc định. Chỉ thêm `"use client"` khi
   thật sự cần hook hoặc sự kiện.
-- Mọi `EventSource` phải có `es.close()` trong hàm cleanup.
+- Mọi `EventSource` phải có `es.close()` trong hàm cleanup, và đóng
+  ngay khi nhận `done`/`error` — nếu không trình duyệt tự kết nối lại
+  và hỏi lại từ đầu.
 - Token stream gom vào `useRef`, flush vào state mỗi 50ms.
   Không setState mỗi token.
 - UI dùng shadcn/ui và Tailwind. Không viết CSS rời.
@@ -58,6 +64,10 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
 - **Chunk giữ `page_number`, `char_start`, `char_end`**: đây
   là điều kiện để nhảy tới vị trí trong tài liệu. Không được
   bỏ.
+- **Bảng `pages` lưu văn bản từng trang**, cùng transaction với
+  chunk. Offset của chunk tính theo rune trên text này; frontend
+  cắt bằng `Array.from`, không dùng `slice` trên UTF-16. Tài liệu
+  xử lý trước migration 000003 không có trang, phải tải lên lại.
 - **Interface `LLMProvider` với hai implementation**: mock để
   test offline và demo không cần mạng.
 - **Chunk 500 token, chồng lấn 50**: nhỏ quá mất ngữ cảnh, to
@@ -70,6 +80,8 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
 ```bash
 docker compose up --build                  # chạy db + api; migration tự chạy khi api khởi động
 cd api && go test ./... && go vet ./...    # kiểm tra api (test tích hợp bị skip)
+cd web && npm run dev                      # frontend ở http://localhost:3000
+cd web && npm run build && npm run lint    # kiểm tra frontend
 ```
 
 Test tích hợp cần Postgres có pgvector (db của docker compose):
@@ -82,7 +94,7 @@ Mỗi test tự tạo rồi xoá một database tạm. Đặt thêm `TEST_POOLER
 (chuỗi đi qua PgBouncer transaction mode) để chạy giống chuỗi
 `-pooler` của Neon.
 
-Chưa có: Makefile (`make migrate`, `make seed`), thư mục `web/`.
+Chưa có: Makefile (`make migrate`, `make seed`), Dockerfile cho `web/`.
 
 ## Biến môi trường
 
@@ -98,6 +110,7 @@ Chưa có: Makefile (`make migrate`, `make seed`), thư mục `web/`.
 | `LLM_EMBED_MODEL` | Model embedding của Gemini, mặc định `text-embedding-004` (phải ra được 768 chiều) |
 | `LLM_CHAT_MODEL` | Model trả lời của Gemini, mặc định `gemini-2.0-flash` |
 | `ALLOWED_ORIGINS` | CORS, phân tách bằng dấu phẩy, mặc định `http://localhost:3000`; `*` là mọi origin |
+| `NEXT_PUBLIC_API_URL` | (web) Địa chỉ API, mặc định `http://localhost:8080`; xem `web/.env.example` |
 
 Xem `.env.example` để có mẫu đầy đủ.
 

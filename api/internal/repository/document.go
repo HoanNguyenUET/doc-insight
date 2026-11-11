@@ -25,17 +25,19 @@ const (
 )
 
 type Document struct {
-	ID          string     `json:"id"`
-	Filename    string     `json:"filename"`
-	SizeBytes   int64      `json:"size_bytes"`
-	PageCount   *int       `json:"page_count"`
-	ChunkCount  int        `json:"chunk_count"`
-	Status      string     `json:"status"`
-	Progress    int        `json:"progress"`
-	Error       *string    `json:"error"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ProcessedAt *time.Time `json:"processed_at"`
+	ID         string  `json:"id"`
+	Filename   string  `json:"filename"`
+	SizeBytes  int64   `json:"size_bytes"`
+	PageCount  *int    `json:"page_count"`
+	ChunkCount int     `json:"chunk_count"`
+	Status     string  `json:"status"`
+	Progress   int     `json:"progress"`
+	Error      *string `json:"error"`
+	// ProcessingStartedAt là lúc worker bắt đầu lần xử lý gần nhất.
+	ProcessingStartedAt *time.Time `json:"processing_started_at"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
+	ProcessedAt         *time.Time `json:"processed_at"`
 }
 
 // NewChunk là một chunk chờ lưu. Embedding rỗng được lưu thành NULL.
@@ -49,12 +51,12 @@ type NewChunk struct {
 	Embedding  []float32
 }
 
-const documentColumns = `id, filename, size_bytes, page_count, chunk_count, status, progress, error, created_at, updated_at, processed_at`
+const documentColumns = `id, filename, size_bytes, page_count, chunk_count, status, progress, error, processing_started_at, created_at, updated_at, processed_at`
 
 func scanDocument(row pgx.Row) (Document, error) {
 	var d Document
 	err := row.Scan(&d.ID, &d.Filename, &d.SizeBytes, &d.PageCount, &d.ChunkCount, &d.Status,
-		&d.Progress, &d.Error, &d.CreatedAt, &d.UpdatedAt, &d.ProcessedAt)
+		&d.Progress, &d.Error, &d.ProcessingStartedAt, &d.CreatedAt, &d.UpdatedAt, &d.ProcessedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Document{}, ErrNotFound
 	}
@@ -151,10 +153,11 @@ func (db *DB) FailDocument(ctx context.Context, id, message string) error {
 	return nil
 }
 
-// CompleteDocument thay toàn bộ chunk của tài liệu và chuyển sang ready trong
-// MỘT transaction: không bao giờ có trạng thái ready mà thiếu chunk, hay chunk
-// dở dang của một lần chạy lỗi. Chạy lại cho cùng tài liệu là an toàn.
-func (db *DB) CompleteDocument(ctx context.Context, id string, pageCount int, chunks []NewChunk) error {
+// CompleteDocument thay toàn bộ trang và chunk của tài liệu rồi chuyển sang
+// ready trong MỘT transaction: không bao giờ có trạng thái ready mà thiếu
+// chunk, hay chunk dở dang của một lần chạy lỗi. Chạy lại cho cùng tài liệu
+// là an toàn. pages[i] là văn bản của trang i+1; số trang là len(pages).
+func (db *DB) CompleteDocument(ctx context.Context, id string, pages []string, chunks []NewChunk) error {
 	n := len(chunks)
 	idx, page, start, end, tokens := make([]int32, n), make([]int32, n), make([]int32, n), make([]int32, n), make([]int32, n)
 	contents := make([]string, n)
@@ -181,6 +184,15 @@ func (db *DB) CompleteDocument(ctx context.Context, id string, pageCount int, ch
 		if _, err := tx.Exec(ctx, `DELETE FROM chunks WHERE document_id = $1`, id); err != nil {
 			return fmt.Errorf("delete old chunks: %w", err)
 		}
+		if _, err := tx.Exec(ctx, `DELETE FROM pages WHERE document_id = $1`, id); err != nil {
+			return fmt.Errorf("delete old pages: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO pages (document_id, page_number, text)
+			SELECT $1, t.ord, t.text FROM unnest($2::text[]) WITH ORDINALITY AS t(text, ord)`,
+			id, pages); err != nil {
+			return fmt.Errorf("insert pages: %w", err)
+		}
 		// Một câu INSERT ... unnest cho cả lô: một round trip dù có hàng nghìn chunk.
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO chunks (document_id, chunk_index, content, page_number, char_start, char_end, token_count, embedding)
@@ -193,7 +205,7 @@ func (db *DB) CompleteDocument(ctx context.Context, id string, pageCount int, ch
 		if _, err := tx.Exec(ctx, `
 			UPDATE documents SET status = 'ready', progress = 100, page_count = $2, chunk_count = $3,
 				error = NULL, processed_at = now(), updated_at = now()
-			WHERE id = $1`, id, pageCount, n); err != nil {
+			WHERE id = $1`, id, len(pages), n); err != nil {
 			return fmt.Errorf("mark ready: %w", err)
 		}
 		return nil
