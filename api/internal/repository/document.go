@@ -24,6 +24,9 @@ const (
 	StatusFailed     = "failed"
 )
 
+// processingStatuses là các trạng thái chưa xong (đang chờ hoặc đang chạy).
+var processingStatuses = []string{StatusPending, StatusExtracting, StatusChunking, StatusEmbedding}
+
 type Document struct {
 	ID         string
 	Filename   string
@@ -145,8 +148,8 @@ func (db *DB) SetDocumentStage(ctx context.Context, id, status string, progress 
 
 func (db *DB) FailDocument(ctx context.Context, id, message string) error {
 	tag, err := db.Pool.Exec(ctx, `
-		UPDATE documents SET status = 'failed', error = $2, processed_at = now(), updated_at = now()
-		WHERE id = $1`, id, message)
+		UPDATE documents SET status = $3, error = $2, processed_at = now(), updated_at = now()
+		WHERE id = $1`, id, message, StatusFailed)
 	if err != nil {
 		return fmt.Errorf("fail document %s: %w", id, err)
 	}
@@ -164,8 +167,8 @@ func (db *DB) ResetDocument(ctx context.Context, id string) error {
 		return fmt.Errorf("reset document %s: %w", id, ErrNotFound)
 	}
 	tag, err := db.Pool.Exec(ctx, `
-		UPDATE documents SET status = 'pending', progress = 0, error = NULL, updated_at = now()
-		WHERE id = $1`, id)
+		UPDATE documents SET status = $2, progress = 0, error = NULL, updated_at = now()
+		WHERE id = $1`, id, StatusPending)
 	if err != nil {
 		return fmt.Errorf("reset document %s: %w", id, err)
 	}
@@ -181,8 +184,8 @@ func (db *DB) ResetDocument(ctx context.Context, id string) error {
 // này; gọi lúc khởi động, trước khi pool nhận job mới.
 func (db *DB) FailUnfinishedDocuments(ctx context.Context, message string) (int64, error) {
 	tag, err := db.Pool.Exec(ctx, `
-		UPDATE documents SET status = 'failed', error = $1, processed_at = now(), updated_at = now()
-		WHERE status IN ('pending', 'extracting', 'chunking', 'embedding')`, message)
+		UPDATE documents SET status = $2, error = $1, processed_at = now(), updated_at = now()
+		WHERE status = ANY($3)`, message, StatusFailed, processingStatuses)
 	if err != nil {
 		return 0, fmt.Errorf("fail unfinished documents: %w", err)
 	}
@@ -240,9 +243,9 @@ func (db *DB) CompleteDocument(ctx context.Context, id, embedModel string, pages
 			return fmt.Errorf("insert chunks: %w", err)
 		}
 		if _, err := tx.Exec(ctx, `
-			UPDATE documents SET status = 'ready', progress = 100, page_count = $2, chunk_count = $3,
+			UPDATE documents SET status = $5, progress = 100, page_count = $2, chunk_count = $3,
 				embed_model = NULLIF($4, ''), error = NULL, processed_at = now(), updated_at = now()
-			WHERE id = $1`, id, len(pages), n, embedModel); err != nil {
+			WHERE id = $1`, id, len(pages), n, embedModel, StatusReady); err != nil {
 			return fmt.Errorf("mark ready: %w", err)
 		}
 		return nil

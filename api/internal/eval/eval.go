@@ -14,6 +14,8 @@ import (
 	"unicode"
 
 	"golang.org/x/text/unicode/norm"
+
+	"github.com/HoanNguyenUET/doc-insight/api/internal/service"
 )
 
 // Case là một câu hỏi trong bộ đánh giá.
@@ -74,10 +76,6 @@ type Result struct {
 	Err       string  `json:"error,omitempty"`
 }
 
-// OutsideLabel phải khớp service.OutsideLabel: phần sau nhãn là kiến thức
-// chung, không tính vào câu trả lời từ tài liệu.
-const OutsideLabel = "Ngoài tài liệu:"
-
 var (
 	citeRe = regexp.MustCompile(`\[\[(\d+)\]\]`)
 	// Những cách model nói tài liệu không có thông tin.
@@ -92,7 +90,8 @@ func Score(c Case, r Run) Result {
 		return res
 	}
 
-	inDoc, _, _ := strings.Cut(r.Answer, OutsideLabel)
+	// Phần sau nhãn là kiến thức chung, không tính vào câu trả lời từ tài liệu.
+	inDoc, _, _ := strings.Cut(r.Answer, service.OutsideLabel)
 	cites := citations(inDoc)
 	add := func(name string, ok bool, note string) { res.Checks = append(res.Checks, Check{name, ok, note}) }
 
