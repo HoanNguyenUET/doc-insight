@@ -61,7 +61,12 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
   và hỏi lại từ đầu.
 - Token stream gom vào `useRef`, flush vào state mỗi 50ms.
   Không setState mỗi token.
-- UI dùng shadcn/ui và Tailwind. Không viết CSS rời.
+- UI dùng shadcn/ui và Tailwind. Không viết CSS rời. Cỡ chữ, bán kính,
+  bóng dùng token trong `globals.css` (`text-body`, `rounded-card`,
+  `shadow-sheet`…); thêm token thì khai báo cả trong `lib/utils.ts` cho `cn()`.
+- Dùng chung, đừng viết lại: trạng thái tài liệu `lib/document-state.ts`,
+  giới hạn và câu hỏi gửi API `lib/question.ts`, bỏ dấu `lib/text.ts`,
+  thông báo trống/lỗi `components/empty-state.tsx`.
 
 ## Quyết định đã chốt — đừng đổi nếu không hỏi
 

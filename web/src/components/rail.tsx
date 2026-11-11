@@ -5,7 +5,8 @@ import { useOpenDocument } from "@/components/documents/use-open-document";
 import { DocsIcon, FileIcon, PlusIcon, SearchIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import type { Document } from "@/lib/api";
-import { displayName, statusTone } from "@/lib/format";
+import { documentState, toneText } from "@/lib/document-state";
+import { displayName } from "@/lib/format";
 import { useDocuments } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
@@ -91,12 +92,10 @@ function DocumentList({ activeId, query }: { activeId: string | undefined; query
 }
 
 // Dòng phụ dưới tên: số trang khi sẵn sàng, còn lại là trạng thái cần chú ý.
-function rowMeta(doc: Document): { text: string; tone?: "warn" | "bad" } {
-  const tone = statusTone(doc.status);
-  if (tone === "proc") return { text: `Đang xử lý ${doc.progress}%`, tone: "warn" };
-  if (tone === "err") return { text: "Không đọc được", tone: "bad" };
-  if (doc.needs_reprocess) return { text: "Cần xử lý lại", tone: "warn" };
-  return { text: doc.page_count != null ? `${doc.page_count} trang` : "Sẵn sàng" };
+function rowMeta(doc: Document): { text: string; className: string } {
+  const state = documentState(doc);
+  if (state.kind !== "ready") return { text: state.label, className: toneText[state.tone] };
+  return { text: doc.page_count != null ? `${doc.page_count} trang` : state.label, className: "text-ink-3" };
 }
 
 function DocumentRow({ doc, active, onOpen }: { doc: Document; active: boolean; onOpen: () => void }) {
@@ -119,14 +118,7 @@ function DocumentRow({ doc, active, onOpen }: { doc: Document; active: boolean; 
           <span className={cn("block truncate text-ui", active ? "font-medium text-blueprint" : "text-ink")}>
             {displayName(doc.filename)}
           </span>
-          <span
-            className={cn(
-              "block text-meta",
-              meta.tone === "warn" ? "text-warn" : meta.tone === "bad" ? "text-bad" : "text-ink-3",
-            )}
-          >
-            {meta.text}
-          </span>
+          <span className={cn("block text-meta", meta.className)}>{meta.text}</span>
         </span>
       </button>
     </li>

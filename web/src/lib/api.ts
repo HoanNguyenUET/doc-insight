@@ -118,5 +118,3 @@ export function uploadDocument(
     xhr.send(form);
   });
 }
-
-export const isProcessing = (s: DocumentStatus) => s !== "ready" && s !== "failed";

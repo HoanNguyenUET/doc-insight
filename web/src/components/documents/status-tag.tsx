@@ -1,25 +1,26 @@
 import { Badge } from "@/components/ui/badge";
-import type { DocumentStatus } from "@/lib/api";
-import { statusTone, toneLabel } from "@/lib/format";
+import type { Document } from "@/lib/api";
+import { documentState } from "@/lib/document-state";
 import { cn } from "@/lib/utils";
 
 const toneClass = {
-  ready: "bg-ok-soft text-ok",
-  proc: "bg-warn-soft text-warn",
-  err: "bg-bad-soft text-bad",
+  ok: "bg-ok-soft text-ok",
+  warn: "bg-warn-soft text-warn",
+  bad: "bg-bad-soft text-bad",
 };
 
-export function StatusTag({ status }: { status: DocumentStatus }) {
-  const tone = statusTone(status);
+// StatusTag: nhãn trạng thái của tài liệu (chấm nhấp nháy khi đang xử lý).
+export function StatusTag({ doc }: { doc: Document }) {
+  const state = documentState(doc);
   return (
     <Badge
       className={cn(
         "gap-[5px] rounded-full border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap",
-        toneClass[tone],
+        toneClass[state.tone],
       )}
     >
-      {tone === "proc" && <i className="size-[5px] animate-blip rounded-full bg-current" />}
-      {toneLabel[tone]}
+      {state.kind === "processing" && <i className="size-[5px] animate-blip rounded-full bg-current" />}
+      {state.kind === "processing" ? "Đang xử lý" : state.label}
     </Badge>
   );
 }

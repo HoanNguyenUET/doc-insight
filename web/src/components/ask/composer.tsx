@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { CloseIcon, SendIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { useAskStore } from "@/lib/ask-store";
+import { questionBudget } from "@/lib/question";
 
-const MAX_QUESTION_CHARS = 300;
 const DEFAULT_QUOTE_QUESTION = "Giải thích đoạn này";
 
 // Ô nhập câu hỏi, kèm khối trích dẫn khi người dùng bôi đen ở cột trái.
@@ -61,7 +61,7 @@ export function Composer({
             ref={input}
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            maxLength={MAX_QUESTION_CHARS}
+            maxLength={questionBudget(pendingQuote)}
             placeholder={pendingQuote ? "Hỏi gì về đoạn này? (để trống: giải thích đoạn này)" : "Hỏi về tài liệu này…"}
             aria-label="Câu hỏi"
             className="h-9 min-w-0 flex-1 bg-transparent px-2.5 text-body outline-none placeholder:text-ink-3"

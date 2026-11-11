@@ -2,16 +2,17 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import type { Document } from "@/lib/api";
-import { statusTone } from "@/lib/format";
+import { documentState } from "@/lib/document-state";
 
-// useOpenDocument: tài liệu sẵn sàng thì mở màn hỏi đáp, đang xử lý hoặc lỗi
-// thì chỉ báo toast. Dùng chung cho thẻ ở danh sách và thanh bên trái.
+// useOpenDocument: mở màn của tài liệu; đang xử lý hoặc lỗi thì chỉ báo toast
+// (tài liệu cần xử lý lại vẫn mở được, màn đó có nút Xử lý lại). Dùng chung cho
+// thẻ ở danh sách và thanh bên trái.
 export function useOpenDocument() {
   const navigate = useNavigate();
   return (doc: Document) => {
-    const tone = statusTone(doc.status);
-    if (tone === "proc") toast("Tài liệu đang được xử lý", { description: `Đã xong ${doc.progress}%` });
-    else if (tone === "err") toast("Không đọc được tài liệu này", { description: doc.error ?? undefined });
+    const state = documentState(doc);
+    if (state.kind === "processing") toast("Tài liệu đang được xử lý", { description: `Đã xong ${doc.progress}%` });
+    else if (state.kind === "failed") toast("Không đọc được tài liệu này", { description: doc.error ?? undefined });
     else navigate(`/documents/${doc.id}`);
   };
 }

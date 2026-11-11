@@ -1,19 +1,5 @@
 import type { Document, DocumentStatus } from "@/lib/api";
 
-export type StatusTone = "ready" | "proc" | "err";
-
-export function statusTone(s: DocumentStatus): StatusTone {
-  if (s === "ready") return "ready";
-  if (s === "failed") return "err";
-  return "proc";
-}
-
-export const toneLabel: Record<StatusTone, string> = {
-  ready: "Sẵn sàng",
-  proc: "Đang xử lý",
-  err: "Không đọc được",
-};
-
 export const stageLabel: Record<DocumentStatus, string> = {
   pending: "Đang chờ",
   extracting: "Đang đọc chữ",

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAnswerStream } from "@/hooks/use-answer-stream";
 import type { Document } from "@/lib/api";
 import { activeConversationFor, newId, useAskStore, type Message } from "@/lib/ask-store";
+import { buildQuestion } from "@/lib/question";
 
 const NO_MESSAGES: Message[] = [];
 
@@ -63,8 +64,7 @@ export function ChatPanel({ doc }: { doc: Document }) {
     addMessage(conversationId, { id: newId(), role: "user", text, quote: quote ?? undefined });
     setPendingQuote(null);
     setStreaming(true);
-    // Đoạn trích nằm trong câu hỏi gửi lên để retrieval tìm đúng vùng đó.
-    const question = quote ? `Về đoạn trích «${quote}»: ${text}` : text;
+    const question = buildQuestion(text, quote);
     setPending({ conversationId, messageId: newId(), question });
   };
 

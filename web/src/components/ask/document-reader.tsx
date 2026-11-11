@@ -7,6 +7,7 @@ import { Document as PdfDocument, Page as PdfPage, pdfjs } from "react-pdf";
 import { ReaderToolbar } from "@/components/ask/reader-toolbar";
 import { SelectionQuote } from "@/components/ask/selection-quote";
 import { usePdfHighlight } from "@/components/ask/use-pdf-highlight";
+import { EmptyState } from "@/components/empty-state";
 import { useElementWidth } from "@/hooks/use-element-width";
 import { api, type Document } from "@/lib/api";
 import { useAskStore } from "@/lib/ask-store";
@@ -64,8 +65,10 @@ export function DocumentReader({ doc }: { doc: Document }) {
           <PdfDocument
             file={api.fileUrl(doc.id)}
             externalLinkTarget="_blank"
-            loading={<Notice>Đang tải PDF…</Notice>}
-            error={<Notice>Không mở được file PDF gốc. Có thể file đã mất trên máy chủ; hãy tải lên lại.</Notice>}
+            loading={<SheetNotice>Đang tải PDF…</SheetNotice>}
+            error={
+              <SheetNotice>Không mở được file PDF gốc. Có thể file đã mất trên máy chủ; hãy tải lên lại.</SheetNotice>
+            }
           >
             {pageWidth > 0 && (
               <PdfPage
@@ -74,7 +77,7 @@ export function DocumentReader({ doc }: { doc: Document }) {
                 customTextRenderer={renderText}
                 onGetTextSuccess={onGetText}
                 onRenderTextLayerSuccess={onTextRendered}
-                loading={<Notice>Đang vẽ trang {currentPage}…</Notice>}
+                loading={<SheetNotice>Đang vẽ trang {currentPage}…</SheetNotice>}
               />
             )}
           </PdfDocument>
@@ -92,6 +95,7 @@ export function DocumentReader({ doc }: { doc: Document }) {
   );
 }
 
-function Notice({ children }: { children: React.ReactNode }) {
-  return <p className="w-[min(620px,80vw)] px-10 py-24 text-center text-sm text-ink-3">{children}</p>;
+// Thông báo đặt trong khung trang PDF (giữ khung đủ rộng khi chưa có trang).
+function SheetNotice({ children }: { children: React.ReactNode }) {
+  return <EmptyState className="w-[min(620px,80vw)] px-10 py-24">{children}</EmptyState>;
 }

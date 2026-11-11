@@ -1,10 +1,12 @@
 import { useEffect } from "react";
-import { Link, NavLink, Outlet, useParams } from "react-router";
+import { NavLink, Outlet, useParams } from "react-router";
 
 import { ReprocessButton } from "@/components/documents/reprocess-button";
-import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/empty-state";
 import { useAskStore } from "@/lib/ask-store";
-import { displayName, formatBytes, statusTone } from "@/lib/format";
+import type { Document } from "@/lib/api";
+import { documentState } from "@/lib/document-state";
+import { displayName, formatBytes } from "@/lib/format";
 import { useDocument } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
@@ -21,34 +23,9 @@ export function DocumentLayout() {
   }, [id, enterDocument]);
 
   let body: React.ReactNode;
-  if (isPending) body = <Notice>Đang tải tài liệu…</Notice>;
-  else if (error) body = <Notice back>{error.message}</Notice>;
-  else if (statusTone(doc.status) === "proc")
-    body = (
-      <Notice>
-        <span className="mb-3 block text-ink-2">Đang đọc tài liệu ({doc.progress}%)…</span>
-        <span className="mx-auto block h-1.5 w-56 overflow-hidden rounded-full bg-rule-soft">
-          <span
-            className="block h-full rounded-full bg-marker transition-[width]"
-            style={{ width: `${doc.progress}%` }}
-          />
-        </span>
-      </Notice>
-    );
-  else if (doc.status === "failed")
-    body = (
-      <Notice back action={<ReprocessButton id={doc.id} label="Thử xử lý lại" />}>
-        Không đọc được tài liệu này: {doc.error}
-      </Notice>
-    );
-  else if (doc.needs_reprocess)
-    body = (
-      <Notice back action={<ReprocessButton id={doc.id} />}>
-        Tài liệu này được xử lý bằng một mô hình AI cũ nên AI sẽ tìm sai đoạn khi trả lời. Bấm "Xử lý lại" để đọc lại
-        tài liệu bằng mô hình hiện tại (mất vài giây đến vài phút).
-      </Notice>
-    );
-  else body = <Outlet context={doc} />;
+  if (isPending) body = <EmptyState>Đang tải tài liệu…</EmptyState>;
+  else if (error) body = <EmptyState back>{error.message}</EmptyState>;
+  else body = <DocumentBody doc={doc} />;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -94,20 +71,35 @@ function Tab({ to, end, children }: { to: string; end?: boolean; children: React
   );
 }
 
-function Notice({ children, back, action }: { children: React.ReactNode; back?: boolean; action?: React.ReactNode }) {
-  return (
-    <div className="m-auto max-w-[46ch] px-5 text-center text-sm leading-relaxed text-ink-3">
-      <p>{children}</p>
-      {(action || back) && (
-        <div className="mt-4 flex justify-center gap-2">
-          {action}
-          {back && (
-            <Button asChild variant="outline">
-              <Link to="/documents">Về danh sách tài liệu</Link>
-            </Button>
-          )}
-        </div>
-      )}
-    </div>
-  );
+// DocumentBody: tab con khi tài liệu sẵn sàng, còn lại là thông báo trạng thái.
+function DocumentBody({ doc }: { doc: Document }) {
+  switch (documentState(doc).kind) {
+    case "processing":
+      return (
+        <EmptyState>
+          <span className="mb-3 block text-ink-2">Đang đọc tài liệu ({doc.progress}%)…</span>
+          <span className="mx-auto block h-1.5 w-56 overflow-hidden rounded-full bg-rule-soft">
+            <span
+              className="block h-full rounded-full bg-marker transition-[width]"
+              style={{ width: `${doc.progress}%` }}
+            />
+          </span>
+        </EmptyState>
+      );
+    case "failed":
+      return (
+        <EmptyState back action={<ReprocessButton id={doc.id} label="Thử xử lý lại" />}>
+          Không đọc được tài liệu này: {doc.error}
+        </EmptyState>
+      );
+    case "stale":
+      return (
+        <EmptyState back action={<ReprocessButton id={doc.id} />}>
+          Tài liệu này được xử lý bằng một mô hình AI cũ nên AI sẽ tìm sai đoạn khi trả lời. Bấm "Xử lý lại" để đọc lại
+          tài liệu bằng mô hình hiện tại (mất vài giây đến vài phút).
+        </EmptyState>
+      );
+    case "ready":
+      return <Outlet context={doc} />;
+  }
 }

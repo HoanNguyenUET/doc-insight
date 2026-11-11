@@ -3,10 +3,9 @@ import { useEffect, useState } from "react";
 import { QuoteAskIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { useAskStore } from "@/lib/ask-store";
+import { MAX_QUOTE_CHARS } from "@/lib/question";
 
 const MIN_PICK_CHARS = 12;
-// Câu hỏi gửi lên tối đa 1000 ký tự; chừa chỗ cho phần người dùng gõ.
-const MAX_QUOTE_CHARS = 600;
 
 type Pick = { page: number; top: number; left: number; text: string };
 

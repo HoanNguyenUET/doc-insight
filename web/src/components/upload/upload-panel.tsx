@@ -6,11 +6,10 @@ import { toast } from "sonner";
 import { DropIcon } from "@/components/icons";
 import { uploadDocument, type DocumentStatus } from "@/lib/api";
 import { formatBytes, stageLabel } from "@/lib/format";
+import { MAX_UPLOAD_BYTES } from "@/lib/question";
 import { queryKeys } from "@/lib/query-client";
 import { useDocument } from "@/lib/queries";
 import { cn } from "@/lib/utils";
-
-const MAX_BYTES = 50 << 20;
 
 // Một file trong hàng đợi của phiên này. Khi đã có id thì trạng thái xử lý
 // lấy từ server qua useDocument, không lưu ở đây.
@@ -31,7 +30,7 @@ export function UploadPanel() {
         toast.error(`${file.name}: chỉ nhận file PDF`);
         continue;
       }
-      if (file.size > MAX_BYTES) {
+      if (file.size > MAX_UPLOAD_BYTES) {
         toast.error(`${file.name}: vượt quá 50 MB`);
         continue;
       }

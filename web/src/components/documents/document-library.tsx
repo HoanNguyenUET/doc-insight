@@ -2,15 +2,16 @@ import { Link } from "react-router";
 import { useState } from "react";
 
 import { DocumentCard } from "@/components/documents/document-card";
+import { EmptyState } from "@/components/empty-state";
 import { SearchIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { statusTone, type StatusTone } from "@/lib/format";
+import { documentState, type StateKind } from "@/lib/document-state";
 import { useDocuments } from "@/lib/queries";
 
-type Filter = "all" | StatusTone;
+type Filter = "all" | StateKind;
 
 export function DocumentLibrary({ heading }: { heading: React.ReactNode }) {
   const { data: docs, isPending, isError, error, refetch } = useDocuments();
@@ -19,7 +20,7 @@ export function DocumentLibrary({ heading }: { heading: React.ReactNode }) {
 
   const q = query.trim().toLowerCase();
   const shown = docs?.filter(
-    (d) => d.filename.toLowerCase().includes(q) && (filter === "all" || statusTone(d.status) === filter),
+    (d) => d.filename.toLowerCase().includes(q) && (filter === "all" || documentState(d).kind === filter),
   );
 
   return (
@@ -44,8 +45,9 @@ export function DocumentLibrary({ heading }: { heading: React.ReactNode }) {
             <SelectContent>
               <SelectItem value="all">Mọi trạng thái</SelectItem>
               <SelectItem value="ready">Sẵn sàng</SelectItem>
-              <SelectItem value="proc">Đang xử lý</SelectItem>
-              <SelectItem value="err">Lỗi</SelectItem>
+              <SelectItem value="processing">Đang xử lý</SelectItem>
+              <SelectItem value="stale">Cần xử lý lại</SelectItem>
+              <SelectItem value="failed">Lỗi</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -61,23 +63,29 @@ export function DocumentLibrary({ heading }: { heading: React.ReactNode }) {
           ))}
         </Grid>
       ) : isError ? (
-        <Empty>
-          <p>Không tải được danh sách tài liệu: {error.message}</p>
-          <Button variant="outline" className="mt-4" onClick={() => refetch()}>
-            Thử lại
-          </Button>
-        </Empty>
+        <EmptyState
+          framed
+          action={
+            <Button variant="outline" onClick={() => refetch()}>
+              Thử lại
+            </Button>
+          }
+        >
+          Không tải được danh sách tài liệu: {error.message}
+        </EmptyState>
       ) : docs.length === 0 ? (
-        <Empty>
-          <p>Chưa có tài liệu nào. Tải lên một file PDF để bắt đầu hỏi đáp.</p>
-          <Button asChild className="mt-4">
-            <Link to="/documents/upload">Tải lên</Link>
-          </Button>
-        </Empty>
+        <EmptyState
+          framed
+          action={
+            <Button asChild>
+              <Link to="/documents/upload">Tải lên</Link>
+            </Button>
+          }
+        >
+          Chưa có tài liệu nào. Tải lên một file PDF để bắt đầu hỏi đáp.
+        </EmptyState>
       ) : shown!.length === 0 ? (
-        <Empty>
-          <p>Không có tài liệu nào khớp bộ lọc.</p>
-        </Empty>
+        <EmptyState framed>Không có tài liệu nào khớp bộ lọc.</EmptyState>
       ) : (
         <Grid>
           {shown!.map((d) => (
@@ -91,12 +99,4 @@ export function DocumentLibrary({ heading }: { heading: React.ReactNode }) {
 
 function Grid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5">{children}</div>;
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-card border border-dashed border-rule bg-paper px-6 py-14 text-center text-sm text-ink-3">
-      {children}
-    </div>
-  );
 }

@@ -1,3 +1,5 @@
+import { foldVietnamese } from "@/lib/text";
+
 // Tìm đoạn nguồn trong text layer của pdf.js để tô sáng trên trang PDF thật.
 //
 // Offset của chunk tính trên văn bản do API trích (Go), còn text layer là
@@ -39,13 +41,7 @@ function flatten(items: string[]): Flat {
 // hiệu Ohm (U+2126) là rác do bản trích cũ sinh ra từ font TeX, không có
 // trong text layer; phải bỏ trước NFKD vì NFKD đổi nó thành chữ Omega.
 function normalize(s: string): string {
-  return s
-    .replace(/\u2126/g, "")
-    .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
-    .replace(/[đĐ]/g, "d")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]/gu, "");
+  return foldVietnamese(s.replace(/\u2126/g, "")).replace(/[^\p{L}\p{N}]/gu, "");
 }
 
 // locate trả các phạm vi cần tô trong từng item, hoặc null nếu không tìm

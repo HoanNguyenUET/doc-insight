@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
+import { EmptyState } from "@/components/empty-state";
 import { SearchIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,11 +9,8 @@ import type { Chunk } from "@/lib/api";
 import { useAskStore } from "@/lib/ask-store";
 import { formatBytes, processingSeconds } from "@/lib/format";
 import { useChunks, useDocument } from "@/lib/queries";
+import { foldVietnamese } from "@/lib/text";
 import { cn } from "@/lib/utils";
-
-// Bỏ dấu và chữ hoa để tìm "phan boi chau" ra "Phan Bội Châu".
-const fold = (s: string) =>
-  s.normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
 
 // Màn "Nội dung tài liệu": giải thích bằng lời thường AI đã đọc tài liệu thế
 // nào, rồi liệt kê các đoạn theo trang. Số liệu kỹ thuật (ký tự, token) chỉ
@@ -25,10 +23,10 @@ export function DocumentContent({ id }: { id: string }) {
   const [technical, setTechnical] = useState(false);
 
   const pages = useMemo(() => {
-    const q = fold(query.trim());
+    const q = foldVietnamese(query.trim());
     const byPage = new Map<number, Chunk[]>();
     for (const c of chunks ?? []) {
-      if (q && !fold(c.content).includes(q)) continue;
+      if (q && !foldVietnamese(c.content).includes(q)) continue;
       byPage.set(c.page_number, [...(byPage.get(c.page_number) ?? []), c]);
     }
     return [...byPage.entries()].sort(([a], [b]) => a - b);
@@ -60,11 +58,13 @@ export function DocumentContent({ id }: { id: string }) {
       )}
 
       {error ? (
-        <Panel tone="bad">{error.message}</Panel>
+        <EmptyState framed tone="bad">
+          {error.message}
+        </EmptyState>
       ) : doc && !ready ? (
-        <Panel>Tài liệu chưa xử lý xong, chưa có nội dung để xem.</Panel>
+        <EmptyState framed>Tài liệu chưa xử lý xong, chưa có nội dung để xem.</EmptyState>
       ) : isPending || !chunks ? (
-        <Panel>Đang tải…</Panel>
+        <EmptyState framed>Đang tải…</EmptyState>
       ) : (
         <>
           <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -89,7 +89,7 @@ export function DocumentContent({ id }: { id: string }) {
           </div>
 
           {pages.length === 0 ? (
-            <Panel>Không có đoạn nào chứa “{query}”.</Panel>
+            <EmptyState framed>Không có đoạn nào chứa “{query}”.</EmptyState>
           ) : (
             <div className="flex flex-col gap-6">
               {pages.map(([page, list]) => (
@@ -124,19 +124,6 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
         <p className="mt-0.5 text-small leading-relaxed text-ink-2">{children}</p>
       </div>
     </li>
-  );
-}
-
-function Panel({ children, tone }: { children: React.ReactNode; tone?: "bad" }) {
-  return (
-    <p
-      className={cn(
-        "rounded-card border border-rule bg-paper px-5 py-10 text-center text-sm",
-        tone === "bad" ? "text-bad" : "text-ink-3",
-      )}
-    >
-      {children}
-    </p>
   );
 }
 

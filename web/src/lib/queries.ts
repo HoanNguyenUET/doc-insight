@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { api, isProcessing, type Document } from "@/lib/api";
+import { api, type Document } from "@/lib/api";
+import { isProcessing } from "@/lib/document-state";
 import { queryKeys } from "@/lib/query-client";
 
 const POLL_MS = 1500;

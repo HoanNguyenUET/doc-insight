@@ -18,7 +18,8 @@ import {
 import { Button } from "@/components/ui/button";
 import type { Document } from "@/lib/api";
 import { useAskStore } from "@/lib/ask-store";
-import { displayName, formatBytes, formatDate, statusTone } from "@/lib/format";
+import { documentState } from "@/lib/document-state";
+import { displayName, formatBytes, formatDate } from "@/lib/format";
 import { useDeleteDocument } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 
@@ -26,8 +27,9 @@ import { cn } from "@/lib/utils";
 // khi cần chú ý (đang xử lý, lỗi, cần xử lý lại); nút thao tác hiện khi rê chuột.
 export function DocumentCard({ doc }: { doc: Document }) {
   const openDocument = useOpenDocument();
-  const tone = statusTone(doc.status);
-  const ready = tone === "ready";
+  const state = documentState(doc);
+  // Tài liệu cần xử lý lại vẫn mở được (màn đó có nút Xử lý lại).
+  const ready = state.kind === "ready" || state.kind === "stale";
   const convCount = useAskStore((s) => s.conversations.filter((c) => c.docId === doc.id).length);
 
   const meta = [
@@ -68,24 +70,18 @@ export function DocumentCard({ doc }: { doc: Document }) {
           </h3>
           <p className="mt-0.5 text-caption text-ink-3">{meta.join(" · ")}</p>
         </div>
-        {!ready && <StatusTag status={doc.status} />}
+        {state.kind !== "ready" && <StatusTag doc={doc} />}
       </div>
 
-      {tone === "proc" && (
+      {state.kind === "processing" && (
         <div className="mt-3.5 h-1 overflow-hidden rounded-full bg-rule-soft">
           <i className="block h-full rounded-full bg-marker transition-[width]" style={{ width: `${doc.progress}%` }} />
         </div>
       )}
 
       <div className="mt-4 flex min-h-[26px] items-center justify-between gap-2">
-        <span className={cn("text-caption", doc.needs_reprocess ? "text-warn" : "text-ink-3")}>
-          {!ready
-            ? ""
-            : doc.needs_reprocess
-              ? "Cần xử lý lại để hỏi đáp chính xác"
-              : convCount
-                ? `${convCount} cuộc hỏi đáp`
-                : "Chưa có câu hỏi nào"}
+        <span className="text-caption text-ink-3">
+          {state.kind !== "ready" ? "" : convCount ? `${convCount} cuộc hỏi đáp` : "Chưa có câu hỏi nào"}
         </span>
         <div
           className="flex gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
