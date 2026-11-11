@@ -68,23 +68,36 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
 ## Lệnh hay dùng
 
 ```bash
-docker compose up              # chạy toàn bộ
-make migrate                   # chạy migration
-make seed                      # nạp PDF mẫu
-go test ./... && go vet ./...  # kiểm tra api
-cd web && npm run lint         # kiểm tra web
+docker compose up --build                  # chạy db + api; migration tự chạy khi api khởi động
+cd api && go test ./... && go vet ./...    # kiểm tra api (test tích hợp bị skip)
 ```
+
+Test tích hợp cần Postgres có pgvector (db của docker compose):
+
+```bash
+cd api && TEST_DATABASE_URL='postgres://docinsight:docinsight@localhost:5432/docinsight?sslmode=disable' go test -race ./...
+```
+
+Mỗi test tự tạo rồi xoá một database tạm. Đặt thêm `TEST_POOLER_URL`
+(chuỗi đi qua PgBouncer transaction mode) để chạy giống chuỗi
+`-pooler` của Neon.
+
+Chưa có: Makefile (`make migrate`, `make seed`), thư mục `web/`.
 
 ## Biến môi trường
 
 | Tên | Mô tả |
 |---|---|
-| `DATABASE_URL` | Postgres connection string |
+| `DATABASE_URL` | Postgres connection string (bắt buộc) |
 | `PORT` | Cổng server, mặc định 8080. Đọc từ env, không hardcode |
-| `STORAGE_DIR` | Nơi lưu file PDF |
+| `DB_MAX_CONNS` | Số kết nối tối đa của pgxpool, mặc định 10 |
+| `LOG_LEVEL` | `debug`, `info`, `warn`, `error`; mặc định `info` |
+| `STORAGE_DIR` | Nơi lưu file PDF, mặc định `storage` (Docker: `/data/uploads`) |
 | `LLM_PROVIDER` | `mock` hoặc `gemini`, mặc định `mock` |
-| `LLM_API_KEY` | Gemini API key |
-| `ALLOWED_ORIGINS` | CORS, phân tách bằng dấu phẩy |
+| `LLM_API_KEY` | Gemini API key, bắt buộc khi `LLM_PROVIDER=gemini` |
+| `ALLOWED_ORIGINS` | CORS, phân tách bằng dấu phẩy, mặc định `http://localhost:3000`; `*` là mọi origin |
+
+Xem `.env.example` để có mẫu đầy đủ.
 
 ## Lưu ý khi sửa code
 
