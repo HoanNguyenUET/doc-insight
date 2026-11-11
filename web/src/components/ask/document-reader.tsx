@@ -117,8 +117,8 @@ export function DocumentReader({ doc }: { doc: Document }) {
   return (
     <section className="flex min-w-0 flex-[1_1_56%] flex-col border-r border-rule bg-field">
       <div className="flex h-[50px] flex-none items-center justify-between gap-3.5 border-b border-rule bg-paper px-4">
-        <div className="truncate text-sm font-medium">{doc.filename}</div>
-        <div className="ml-auto flex items-center gap-px rounded-[7px] bg-field p-0.5">
+        <div className="min-w-0 truncate text-sm font-medium">{doc.filename}</div>
+        <div className="ml-auto flex flex-none items-center gap-px rounded-[7px] bg-field p-0.5">
           <PagerButton onClick={() => setZoom((z) => z - 1)} disabled={zoom === 0} label="Thu nhỏ">
             −
           </PagerButton>
@@ -127,11 +127,11 @@ export function DocumentReader({ doc }: { doc: Document }) {
             +
           </PagerButton>
         </div>
-        <div className="flex items-center gap-px rounded-[7px] bg-field p-0.5">
+        <div className="flex flex-none items-center gap-px rounded-[7px] bg-field p-0.5">
           <PagerButton onClick={() => turn(-1)} disabled={currentPage <= 1} label="Trang trước">
             ‹
           </PagerButton>
-          <span className="px-2 font-mono text-xs text-ink-2">
+          <span className="px-2 font-mono text-xs whitespace-nowrap text-ink-2">
             <b>{currentPage}</b> / {pageCount}
           </span>
           <PagerButton onClick={() => turn(1)} disabled={currentPage >= pageCount} label="Trang sau">

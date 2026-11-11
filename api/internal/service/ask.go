@@ -146,14 +146,20 @@ func (s *AskService) stream(ctx context.Context, prompt string, w AnswerWriter) 
 	return tokens, nil
 }
 
+// OutsideLabel mở đầu phần trả lời bằng kiến thức chung (không có trong
+// tài liệu, không có trích dẫn). Frontend dựa vào nhãn này để hiện phần đó
+// tách riêng; đổi ở đây thì đổi cả web/src/components/ask/answer-text.tsx.
+const OutsideLabel = "Ngoài tài liệu:"
+
 // buildPrompt đánh số đoạn trích [[1]]..[[n]] theo đúng thứ tự sources.
 // MockProvider đọc lại định dạng này: dòng "[[n]] (trang p)" mở đầu mỗi
 // đoạn, dòng "Câu hỏi:" mở đầu phần câu hỏi.
 func buildPrompt(question string, sources []Source) string {
 	var b strings.Builder
-	b.WriteString(`Bạn là trợ lý trả lời câu hỏi về một tài liệu nội bộ. Chỉ dùng thông tin trong các đoạn trích bên dưới, không dùng kiến thức bên ngoài.
-Sau mỗi ý, ghi trích dẫn dạng [[n]], với n là số của đoạn trích chứa thông tin đó; một ý dựa trên nhiều đoạn thì ghi [[1]][[3]].
-Nếu các đoạn trích không đủ để trả lời, nói rõ là tài liệu không đề cập. Trả lời bằng tiếng Việt, ngắn gọn.
+	b.WriteString(`Bạn là trợ lý trả lời câu hỏi về một tài liệu nội bộ. Ưu tiên thông tin trong các đoạn trích bên dưới, và không bịa ra điều gì về tài liệu.
+Sau mỗi ý lấy từ đoạn trích, ghi trích dẫn dạng [[n]], với n là số của đoạn trích chứa thông tin đó; một ý dựa trên nhiều đoạn thì ghi [[1]][[3]].
+Nếu cần kiến thức chung (giải thích khái niệm, bối cảnh, gợi ý, soạn văn bản) hoặc câu hỏi nằm ngoài tài liệu, bạn được trả lời bằng hiểu biết của mình, nhưng đặt toàn bộ phần đó ở cuối, mở đầu bằng đúng "` + OutsideLabel + `" ở đầu một đoạn mới, và không ghi trích dẫn trong phần đó. Nếu tài liệu không đề cập điều được hỏi, nói rõ điều đó trước.
+Trả lời bằng tiếng Việt, ngắn gọn.
 Viết văn xuôi, không dùng markdown (không **, *, #, gạch đầu dòng, bảng); muốn tách ý thì xuống đoạn bằng một dòng trống.
 
 Đoạn trích:

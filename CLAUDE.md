@@ -132,3 +132,7 @@ Xem `.env.example` để có mẫu đầy đủ.
 - Đổi trang xong đừng scroll ngay — phần tử chưa có trong
   DOM. Effect phải phụ thuộc cả `[activeCitation, pageData]`.
 - Lưu chunk phải nằm trong một transaction.
+- Câu trả lời được dùng kiến thức chung, nhưng phần đó phải nằm sau nhãn
+  `OutsideLabel` ("Ngoài tài liệu:", trong `service/ask.go`) và không có
+  `[[n]]`. Frontend (`answer-text.tsx`) dựa vào đúng chuỗi này để hiện khung
+  riêng; đổi nhãn thì đổi cả hai nơi.

@@ -282,6 +282,10 @@ func TestBuildPrompt(t *testing.T) {
 		"\nCâu hỏi: Nghỉ phép bao nhiêu ngày?\n",
 		// Frontend chỉ tách đoạn theo dòng trống, không render markdown.
 		"không dùng markdown",
+		// Được dùng kiến thức chung, nhưng tách riêng sau nhãn mà frontend
+		// nhận ra, và không gắn trích dẫn vào phần đó.
+		`"` + OutsideLabel + `"`,
+		"không ghi trích dẫn",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("prompt missing %q:\n%s", want, got)
@@ -289,6 +293,9 @@ func TestBuildPrompt(t *testing.T) {
 	}
 	if strings.Index(got, "[[1]] (trang") > strings.Index(got, "[[2]] (trang") {
 		t.Error("excerpts out of order")
+	}
+	if strings.Contains(got, "không dùng kiến thức bên ngoài") {
+		t.Error("prompt still forbids outside knowledge")
 	}
 	if !strings.Contains(buildPrompt("q", nil), "(không có đoạn nào)") {
 		t.Error("empty-sources prompt should say there are no excerpts")
