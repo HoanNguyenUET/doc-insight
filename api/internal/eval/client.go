@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -31,11 +30,10 @@ type document struct {
 	NeedsReprocess bool `json:"needs_reprocess"`
 }
 
-// EnsureDocument trả id của tài liệu tên name (tiền tố "eval-" để không lẫn
-// với tài liệu của người dùng); chưa có thì tải file lên, còn xử lý bằng mô
-// hình cũ thì xử lý lại, rồi chờ xử lý xong.
-func (c *Client) EnsureDocument(ctx context.Context, path string) (string, error) {
-	name := "eval-" + filepath.Base(path)
+// EnsureDocument trả id của tài liệu tên name; chưa có thì tải file path lên,
+// còn xử lý bằng mô hình cũ thì xử lý lại, rồi chờ xử lý xong. Gọi lại nhiều
+// lần không tạo bản trùng.
+func (c *Client) EnsureDocument(ctx context.Context, path, name string) (string, error) {
 	var list struct {
 		Documents []document `json:"documents"`
 	}

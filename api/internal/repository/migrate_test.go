@@ -14,7 +14,7 @@ import (
 
 var realMigrations = migrations.FS
 
-var realVersions = []string{"000001_init", "000002_status_pending", "000003_pages", "000004_embed_model"}
+var realVersions = []string{"000001_documents", "000002_chunks", "000003_pages"}
 
 func appliedVersions(t *testing.T, db *DB) []string {
 	t.Helper()

@@ -63,7 +63,7 @@ func run(api, casesPath, docsDir, only, out string, minPass float64) error {
 
 	for _, c := range cases {
 		if _, ok := docIDs[c.Doc]; !ok {
-			id, err := client.EnsureDocument(ctx, filepath.Join(docsDir, c.Doc))
+			id, err := client.EnsureDocument(ctx, filepath.Join(docsDir, c.Doc), "eval-"+c.Doc)
 			if err != nil {
 				return err
 			}

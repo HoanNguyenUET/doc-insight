@@ -1,1 +1,1 @@
-DROP TABLE pages;
+DROP TABLE IF EXISTS pages;

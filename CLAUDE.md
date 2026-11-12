@@ -85,8 +85,7 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
   nếu không text layer vẽ lại liên tục.
 - **Bảng `pages` lưu văn bản từng trang**, cùng transaction với
   chunk. Offset của chunk tính theo rune trên text này; frontend
-  cắt bằng `Array.from`, không dùng `slice` trên UTF-16. Tài liệu
-  xử lý trước migration 000003 không có trang, phải tải lên lại.
+  cắt bằng `Array.from`, không dùng `slice` trên UTF-16.
 - **Tài liệu ghi `embed_model`**: vector của hai mô hình embedding không so
   sánh được. Tài liệu xử lý bằng mô hình khác mô hình đang chạy (hoặc không
   rõ, NULL) có `needs_reprocess`, `/ask` trả `ErrDocStale` (409), và phải gọi
@@ -101,7 +100,8 @@ prompt → stream câu trả lời qua SSE kèm trích dẫn.
 ## Lệnh hay dùng
 
 ```bash
-docker compose up --build                  # chạy db + api; migration tự chạy khi api khởi động
+docker compose up -d --build               # chạy db + api + web (http://localhost:3000); migration tự chạy
+cd api && go run ./cmd/seed                # nạp PDF mẫu (api/eval/docs) qua API, chạy lại không trùng
 cd api && go test ./... && go vet ./...    # kiểm tra api (test tích hợp bị skip)
 cd web && npm run dev                      # frontend (Vite) ở http://localhost:3000
 cd web && npm test && npm run build && npm run lint && npm run format:check    # kiểm tra frontend
@@ -129,7 +129,9 @@ Mỗi test tự tạo rồi xoá một database tạm. Đặt thêm `TEST_POOLER
 (chuỗi đi qua PgBouncer transaction mode) để chạy giống chuỗi
 `-pooler` của Neon.
 
-Chưa có: Makefile (`make migrate`, `make seed`), Dockerfile cho `web/`.
+Hướng dẫn demo, chạy test và giải thích SSE: `docs/huong-dan-demo.md`.
+Migration: `000001_documents` → `000002_chunks` → `000003_pages`; thêm
+thay đổi schema thì tạo file số tiếp theo, không sửa file đã chạy.
 
 ## Biến môi trường
 
